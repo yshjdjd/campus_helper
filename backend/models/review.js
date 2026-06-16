@@ -11,11 +11,24 @@ const Review = {
 
   async findByUser(userId) {
     const [rows] = await db.execute(
-      `SELECT r.*, u.username AS reviewer_name
-       FROM reviews r LEFT JOIN users u ON r.reviewer_id = u.id
+      `SELECT r.*, u.username AS reviewer_name, t.title AS task_title
+       FROM reviews r
+       LEFT JOIN users u ON r.reviewer_id = u.id
+       LEFT JOIN tasks t ON r.task_id = t.id
        WHERE r.reviewee_id = ?
        ORDER BY r.created_at DESC`,
       [userId]
+    );
+    return rows;
+  },
+
+  async findByTask(taskId) {
+    const [rows] = await db.execute(
+      `SELECT r.*, u.username AS reviewer_name
+       FROM reviews r LEFT JOIN users u ON r.reviewer_id = u.id
+       WHERE r.task_id = ?
+       ORDER BY r.created_at ASC`,
+      [taskId]
     );
     return rows;
   },

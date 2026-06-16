@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const config = require('./config');
 const Message = require('./models/message');
+const User = require('./models/user');
 
 function initSocket(io) {
   io.use((socket, next) => {
@@ -24,6 +25,11 @@ function initSocket(io) {
         const { taskId, receiverId, content } = data;
         if (!taskId || !receiverId || !content) {
           return socket.emit('error', { message: '参数不完整' });
+        }
+
+        const user = await User.findById(userId);
+        if (user.is_banned) {
+          return socket.emit('error', { message: '账号已被禁用，无法发送消息' });
         }
 
         const result = await Message.create({

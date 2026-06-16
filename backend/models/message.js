@@ -22,6 +22,27 @@ const Message = {
     return rows;
   },
 
+  async findConversations(userId) {
+    const [rows] = await db.execute(
+      `SELECT m.task_id, t.title AS task_title,
+              m.sender_id, m.receiver_id, m.content AS last_message, m.created_at AS last_time,
+              u1.username AS sender_name, u2.username AS receiver_name
+       FROM messages m
+       INNER JOIN (
+         SELECT task_id, MAX(id) AS max_id
+         FROM messages
+         WHERE sender_id = ? OR receiver_id = ?
+         GROUP BY task_id
+       ) latest ON m.id = latest.max_id
+       LEFT JOIN tasks t ON m.task_id = t.id
+       LEFT JOIN users u1 ON m.sender_id = u1.id
+       LEFT JOIN users u2 ON m.receiver_id = u2.id
+       ORDER BY m.created_at DESC`,
+      [userId, userId]
+    );
+    return rows;
+  },
+
   async markRead(taskId, userId) {
     const [result] = await db.execute(
       'UPDATE messages SET is_read = 1 WHERE task_id = ? AND receiver_id = ? AND is_read = 0',
