@@ -1,11 +1,8 @@
 <template>
   <div class="task-list">
     <div class="filters">
-      <el-select v-model="filters.category" clearable placeholder="分类筛选" @change="loadTasks">
-        <el-option label="跑腿" value="errand" />
-        <el-option label="学业" value="study" />
-        <el-option label="招募" value="recruit" />
-        <el-option label="生活" value="life" />
+      <el-select v-model="filters.category_id" clearable placeholder="分类筛选" @change="loadTasks">
+        <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
       </el-select>
       <el-select v-model="filters.status" clearable placeholder="状态筛选" @change="loadTasks">
         <el-option label="招募中" value="recruiting" />
@@ -20,7 +17,7 @@
       <el-col :span="8" v-for="task in tasks" :key="task.id">
         <el-card class="task-card" @click="router.push(`/tasks/${task.id}`)">
           <div class="task-header">
-            <el-tag :type="categoryTagMap[task.category]">{{ categoryMap[task.category] }}</el-tag>
+            <el-tag type="info">{{ task.category_name }}</el-tag>
             <el-tag :type="statusTagMap[task.status]" effect="plain">{{ statusMap[task.status] }}</el-tag>
           </div>
           <h3>{{ task.title }}</h3>
@@ -49,31 +46,33 @@ import api from '../api'
 
 const router = useRouter()
 const tasks = ref([])
+const categories = ref([])
 const total = ref(0)
 const page = ref(1)
 const limit = 9
-const filters = reactive({ category: '', status: '', keyword: '' })
+const filters = reactive({ category_id: '', status: '', keyword: '' })
 
-const categoryMap = { errand: '跑腿', study: '学业', recruit: '招募', life: '生活' }
 const statusMap = { recruiting: '招募中', in_progress: '进行中', completed: '已完成', cancelled: '已取消' }
-const categoryTagMap = { errand: 'warning', study: 'success', recruit: 'primary', life: 'info' }
 const statusTagMap = { recruiting: 'primary', in_progress: 'warning', completed: 'success', cancelled: 'info' }
+
+async function loadCategories() {
+  try { const res = await api.get('/categories'); categories.value = res.data.data }
+  catch (err) { console.error('Load categories error:', err) }
+}
 
 async function loadTasks() {
   try {
     const params = { page: page.value, limit }
-    if (filters.category) params.category = filters.category
+    if (filters.category_id) params.category_id = filters.category_id
     if (filters.status) params.status = filters.status
     if (filters.keyword) params.keyword = filters.keyword
     const res = await api.get('/tasks', { params })
     tasks.value = res.data.data.rows
     total.value = res.data.data.total
-  } catch (err) {
-    console.error('Load tasks error:', err)
-  }
+  } catch (err) { console.error('Load tasks error:', err) }
 }
 
-onMounted(loadTasks)
+onMounted(() => { loadCategories(); loadTasks() })
 </script>
 
 <style scoped>

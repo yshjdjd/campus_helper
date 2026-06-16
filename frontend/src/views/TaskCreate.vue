@@ -9,12 +9,9 @@
         <el-form-item label="描述" prop="description">
           <el-input v-model="form.description" type="textarea" :rows="4" placeholder="详细描述任务内容" />
         </el-form-item>
-        <el-form-item label="分类" prop="category">
-          <el-select v-model="form.category" placeholder="选择分类">
-            <el-option label="跑腿" value="errand" />
-            <el-option label="学业搭档" value="study" />
-            <el-option label="招募" value="recruit" />
-            <el-option label="生活交易" value="life" />
+        <el-form-item label="分类" prop="category_id">
+          <el-select v-model="form.category_id" placeholder="选择分类">
+            <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="赏金">
@@ -36,7 +33,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import { ElMessage } from 'element-plus'
@@ -44,13 +41,19 @@ import { ElMessage } from 'element-plus'
 const router = useRouter()
 const formRef = ref()
 const loading = ref(false)
+const categories = ref([])
 const form = reactive({
-  title: '', description: '', category: '', reward: 0, deadline: null, location: '',
+  title: '', description: '', category_id: '', reward: 0, deadline: null, location: '',
 })
 const rules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
   description: [{ required: true, message: '请输入描述', trigger: 'blur' }],
-  category: [{ required: true, message: '请选择分类', trigger: 'change' }],
+  category_id: [{ required: true, message: '请选择分类', trigger: 'change' }],
+}
+
+async function loadCategories() {
+  const res = await api.get('/categories')
+  categories.value = res.data.data
 }
 
 async function handleSubmit() {
@@ -68,6 +71,8 @@ async function handleSubmit() {
     loading.value = false
   }
 }
+
+onMounted(loadCategories)
 </script>
 
 <style scoped>

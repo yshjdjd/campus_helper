@@ -4,8 +4,11 @@
       <div class="logo" @click="router.push('/')">校园互助平台</div>
       <div class="nav">
         <el-button text @click="router.push('/')">任务大厅</el-button>
-        <el-button text @click="router.push('/tasks/create')">发布任务</el-button>
         <template v-if="authStore.isLoggedIn">
+          <el-button text @click="router.push('/tasks/create')">发布任务</el-button>
+          <el-button text @click="router.push('/messages')">消息</el-button>
+          <el-button text @click="router.push('/my')">我的</el-button>
+          <el-button text v-if="authStore.isAdmin" @click="router.push('/admin')">管理</el-button>
           <el-button text @click="router.push('/profile')">个人中心</el-button>
           <el-button text @click="handleLogout">退出</el-button>
         </template>
