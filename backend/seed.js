@@ -2,6 +2,7 @@
  * 样例数据插入脚本（重构版）
  * 运行方式: cd backend && node seed.js
  */
+require('dotenv').config();
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 
@@ -9,7 +10,11 @@ const SALT_ROUNDS = 10;
 
 async function seed() {
   const conn = await mysql.createConnection({
-    host: 'localhost', port: 3306, user: 'root', password: 'huang20050711', database: 'campus_helper',
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || 3306,
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASS || '',
+    database: process.env.DB_NAME || 'campus_helper',
   });
 
   console.log('🔗 已连接数据库');

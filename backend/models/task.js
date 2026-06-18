@@ -50,7 +50,7 @@ const Task = {
       params.push(`%${keyword}%`, `%${keyword}%`);
     }
 
-    const countSql = sql.replace(/SELECT .+ FROM/, 'SELECT COUNT(*) AS total FROM');
+    const countSql = sql.replace(/SELECT .+ FROM/s, 'SELECT COUNT(*) AS total FROM');
     const [countRows] = await db.execute(countSql, params);
     const total = countRows[0].total;
 

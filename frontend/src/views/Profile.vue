@@ -6,6 +6,7 @@
           class="avatar-uploader"
           :action="uploadUrl"
           :headers="uploadHeaders"
+          name="avatar"
           :show-file-list="false"
           :on-success="handleAvatarSuccess"
           :before-upload="beforeAvatarUpload"
