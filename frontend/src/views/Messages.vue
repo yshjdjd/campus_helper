@@ -34,15 +34,28 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.messages-page { max-width: 700px; margin: 0 auto; }
-.messages-page h2 { margin-bottom: 20px; }
+.messages-page { max-width: 750px; margin: 0 auto; }
+.messages-page h2 { margin-bottom: 20px; font-size: 22px; color: #303133; }
 .empty { color: #999; text-align: center; padding: 40px; }
-.conv-item { padding: 16px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; }
-.conv-item:hover { background: #f5f7fa; }
+.conv-item {
+  padding: 16px 20px;
+  margin-bottom: 10px;
+  border: 1px solid #e4e7ed;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  background: #fff;
+}
+.conv-item:hover {
+  background: #f0f5ff;
+  border-color: #b3d8ff;
+  box-shadow: 0 2px 12px rgba(64, 158, 255, 0.12);
+  transform: translateY(-1px);
+}
 .conv-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
-.task-title { font-weight: bold; color: #333; }
+.task-title { font-weight: 600; color: #303133; }
 .time { color: #999; font-size: 13px; }
 .conv-body { color: #666; font-size: 14px; }
-.sender { margin-right: 4px; }
+.sender { margin-right: 4px; font-weight: 500; }
 .last-msg { color: #999; }
 </style>

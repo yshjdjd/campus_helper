@@ -1,16 +1,20 @@
 <template>
   <div class="task-list">
-    <div class="filters">
-      <el-select v-model="filters.category_id" clearable placeholder="分类筛选" @change="loadTasks">
-        <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
-      </el-select>
-      <el-select v-model="filters.status" clearable placeholder="状态筛选" @change="loadTasks">
-        <el-option label="招募中" value="recruiting" />
-        <el-option label="进行中" value="in_progress" />
-        <el-option label="已完成" value="completed" />
-      </el-select>
-      <el-input v-model="filters.keyword" placeholder="搜索关键词" clearable @keyup.enter="loadTasks" style="width:200px" />
-      <el-button type="primary" @click="loadTasks">搜索</el-button>
+    <div class="filters-card">
+      <div class="filters">
+        <el-select v-model="filters.category_id" clearable placeholder="分类筛选" @change="loadTasks">
+          <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
+        </el-select>
+        <el-select v-model="filters.status" clearable placeholder="状态筛选" @change="loadTasks">
+          <el-option label="招募中" value="recruiting" />
+          <el-option label="进行中" value="in_progress" />
+          <el-option label="已完成" value="completed" />
+        </el-select>
+        <el-input v-model="filters.keyword" placeholder="搜索关键词" clearable @keyup.enter="loadTasks" style="width:220px">
+          <template #prefix><span style="color:#999">🔍</span></template>
+        </el-input>
+        <el-button type="primary" @click="loadTasks">搜索</el-button>
+      </div>
     </div>
 
     <el-row :gutter="16">
@@ -76,12 +80,31 @@ onMounted(() => { loadCategories(); loadTasks() })
 </script>
 
 <style scoped>
-.filters { display: flex; gap: 12px; margin-bottom: 20px; }
-.task-card { cursor: pointer; margin-bottom: 16px; transition: box-shadow 0.2s; }
-.task-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.filters-card {
+  background: #fff;
+  border: 1px solid #e4e7ed;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.task-card {
+  cursor: pointer;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  border: 1px solid #e4e7ed;
+  transition: all 0.3s ease;
+  height: 100%;
+}
+.task-card:hover {
+  box-shadow: 0 6px 24px rgba(64, 158, 255, 0.15);
+  border-color: #b3d8ff;
+  transform: translateY(-3px);
+}
 .task-header { display: flex; gap: 8px; margin-bottom: 8px; }
-.task-card h3 { margin: 0 0 8px; font-size: 16px; }
-.desc { color: #666; font-size: 13px; margin: 0 0 8px; }
+.task-card h3 { margin: 0 0 8px; font-size: 16px; color: #303133; }
+.desc { color: #909399; font-size: 13px; margin: 0 0 10px; line-height: 1.5; }
 .task-footer { display: flex; justify-content: space-between; font-size: 13px; color: #999; }
-.reward { color: #e6a23c; font-weight: bold; }
+.reward { color: #e6a23c; font-weight: 600; }
 </style>

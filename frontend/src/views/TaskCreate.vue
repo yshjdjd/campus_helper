@@ -17,7 +17,7 @@
         <el-form-item label="赏金">
           <el-input-number v-model="form.reward" :min="0" :precision="2" />
         </el-form-item>
-        <el-form-item label="截止时间">
+        <el-form-item label="截止时间" prop="deadline">
           <el-date-picker v-model="form.deadline" type="datetime" placeholder="选择截止时间" />
         </el-form-item>
         <el-form-item label="地点">
@@ -49,6 +49,7 @@ const rules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
   description: [{ required: true, message: '请输入描述', trigger: 'blur' }],
   category_id: [{ required: true, message: '请选择分类', trigger: 'change' }],
+  deadline: [{ required: true, message: '请选择截止时间', trigger: 'change' }],
 }
 
 async function loadCategories() {

@@ -74,12 +74,25 @@ onMounted(loadTasks)
 </script>
 
 <style scoped>
-.my-tasks { max-width: 700px; margin: 0 auto; }
-.my-tasks h2 { margin-bottom: 20px; }
+.my-tasks { max-width: 750px; margin: 0 auto; }
+.my-tasks h2 { margin-bottom: 20px; font-size: 22px; color: #303133; }
 .empty { color: #999; text-align: center; padding: 40px; }
-.task-item { padding: 16px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; }
-.task-item:hover { background: #f5f7fa; }
+.task-item {
+  padding: 16px 20px;
+  margin-bottom: 10px;
+  border: 1px solid #e4e7ed;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  background: #fff;
+}
+.task-item:hover {
+  background: #f0f5ff;
+  border-color: #b3d8ff;
+  box-shadow: 0 2px 12px rgba(64, 158, 255, 0.12);
+  transform: translateY(-1px);
+}
 .task-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.title { font-weight: bold; }
-.task-footer { display: flex; gap: 16px; align-items: center; color: #666; font-size: 13px; }
+.title { font-weight: 600; font-size: 15px; color: #303133; }
+.task-footer { display: flex; gap: 16px; align-items: center; color: #909399; font-size: 13px; }
 </style>
