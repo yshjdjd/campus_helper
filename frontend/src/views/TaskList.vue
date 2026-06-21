@@ -1,0 +1,356 @@
+<template>
+  <div class="task-list">
+    <!-- Hero 搜索区域 -->
+    <div class="hero-section">
+      <h1 class="hero-title">发现校园互助任务</h1>
+      <p class="hero-subtitle">找人帮忙、组队学习、二手交易，一站搞定</p>
+      <div class="search-bar">
+        <el-input
+          v-model="filters.keyword"
+          placeholder="搜索任务标题或描述..."
+          size="large"
+          clearable
+          @keyup.enter="onSearch"
+          class="search-input"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-button type="primary" size="large" @click="onSearch" class="search-btn">搜索</el-button>
+      </div>
+      <div class="filters">
+        <el-select v-model="filters.category_id" clearable placeholder="全部分类" size="large" @change="onSearch">
+          <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
+        </el-select>
+        <el-select v-model="filters.status" clearable placeholder="全部状态" size="large" @change="onSearch">
+          <el-option label="招募中" value="recruiting" />
+          <el-option label="进行中" value="in_progress" />
+          <el-option label="已完成" value="completed" />
+        </el-select>
+      </div>
+    </div>
+
+    <!-- 任务卡片 -->
+    <el-row :gutter="20">
+      <el-col :xs="24" :sm="12" :md="8" v-for="task in tasks" :key="task.id">
+        <el-card class="task-card" @click="router.push(`/tasks/${task.id}`)">
+          <div class="task-header">
+            <el-tag type="info" size="small">{{ task.category_name }}</el-tag>
+            <el-tag :type="statusTagMap[task.status]" effect="plain" size="small">{{ statusMap[task.status] }}</el-tag>
+          </div>
+          <h3 class="task-title">{{ task.title }}</h3>
+          <p class="task-desc">{{ task.description?.substring(0, 80) }}...</p>
+          <div class="task-footer">
+            <div class="task-meta">
+              <el-avatar :size="20" :src="task.publisher_avatar || ''" />
+              <span>{{ task.publisher_name }}</span>
+            </div>
+            <span class="reward" v-if="task.reward > 0">💰 {{ task.reward }}</span>
+            <span class="reward-free" v-else>免费</span>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 空状态 -->
+    <div v-if="tasks.length === 0 && !loading" class="empty-state">
+      <el-icon :size="48"><Box /></el-icon>
+      <p>暂无任务，换个关键词试试</p>
+    </div>
+
+    <!-- 加载状态 / 没有更多 -->
+    <div class="load-more-status">
+      <div v-if="loading" class="loading-indicator">
+        <el-icon class="is-loading"><Loading /></el-icon>
+        <span>加载中...</span>
+      </div>
+      <div v-else-if="noMore && tasks.length > 0" class="no-more">
+        <span>—— 已经到底了 ——</span>
+      </div>
+      <div v-else ref="sentinelRef" class="sentinel"></div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
+import { Search, Box, Loading } from '@element-plus/icons-vue'
+import api from '../api'
+
+const router = useRouter()
+const tasks = ref([])
+const categories = ref([])
+const total = ref(0)
+const page = ref(1)
+const limit = 9
+const loading = ref(false)
+const noMore = ref(false)
+const sentinelRef = ref(null)
+const filters = reactive({ category_id: '', status: '', keyword: '' })
+
+let observer = null
+
+const statusMap = { recruiting: '招募中', in_progress: '进行中', completed: '已完成', cancelled: '已取消' }
+const statusTagMap = { recruiting: 'primary', in_progress: 'warning', completed: 'success', cancelled: 'info' }
+
+async function loadCategories() {
+  try { const res = await api.get('/categories'); categories.value = res.data.data }
+  catch (err) { console.error('Load categories error:', err) }
+}
+
+function buildParams() {
+  const params = { page: page.value, limit }
+  if (filters.category_id) params.category_id = filters.category_id
+  if (filters.status) params.status = filters.status
+  if (filters.keyword) params.keyword = filters.keyword
+  return params
+}
+
+async function loadTasks() {
+  if (loading.value || noMore.value) return
+  loading.value = true
+  try {
+    const res = await api.get('/tasks', { params: buildParams() })
+    const newRows = res.data.data.rows
+    total.value = res.data.data.total
+
+    if (page.value === 1) {
+      tasks.value = newRows
+    } else {
+      tasks.value = [...tasks.value, ...newRows]
+    }
+
+    // 判断是否还有更多
+    if (tasks.value.length >= total.value || newRows.length < limit) {
+      noMore.value = true
+    }
+  } catch (err) { console.error('Load tasks error:', err) }
+  finally {
+    loading.value = false
+    // 重新观察哨兵元素
+    nextTick(() => observeSentinel())
+  }
+}
+
+/** 搜索/筛选时重置 */
+function onSearch() {
+  page.value = 1
+  noMore.value = false
+  tasks.value = []
+  loadTasks()
+}
+
+/** 设置 IntersectionObserver */
+function observeSentinel() {
+  if (observer) observer.disconnect()
+  if (!sentinelRef.value || noMore.value) return
+
+  observer = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting && !loading.value && !noMore.value) {
+      page.value++
+      loadTasks()
+    }
+  }, { rootMargin: '200px' })  // 提前 200px 触发
+
+  observer.observe(sentinelRef.value)
+}
+
+onMounted(() => {
+  loadCategories()
+  loadTasks()
+})
+
+onUnmounted(() => {
+  if (observer) observer.disconnect()
+})
+</script>
+
+<style scoped>
+/* Hero 搜索区域 */
+.hero-section {
+  text-align: center;
+  padding: 40px 20px 32px;
+  margin-bottom: 32px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  color: #fff;
+}
+
+.hero-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+
+.hero-subtitle {
+  font-size: 15px;
+  opacity: 0.85;
+  margin-bottom: 28px;
+}
+
+.search-bar {
+  display: flex;
+  max-width: 640px;
+  margin: 0 auto 20px;
+  gap: 12px;
+}
+
+.search-input {
+  flex: 1;
+}
+
+.search-input :deep(.el-input__wrapper) {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+  padding: 4px 16px;
+  height: 48px;
+}
+
+.search-input :deep(.el-input__inner) {
+  font-size: 16px;
+}
+
+.search-btn {
+  height: 48px;
+  padding: 0 28px;
+  border-radius: 12px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.filters {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.filters :deep(.el-select) {
+  width: 160px;
+}
+
+.filters :deep(.el-select .el-input__wrapper) {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+.filters :deep(.el-select .el-input__inner) {
+  color: #fff;
+}
+
+.filters :deep(.el-select .el-input__inner::placeholder) {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 任务卡片 */
+.task-card {
+  cursor: pointer;
+  margin-bottom: 20px;
+  border-radius: 12px !important;
+  transition: all 0.3s ease !important;
+}
+
+.task-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1) !important;
+}
+
+.task-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.task-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1d2129;
+  line-height: 1.4;
+}
+
+.task-desc {
+  color: #86909c;
+  font-size: 13px;
+  margin: 0 0 16px;
+  line-height: 1.6;
+}
+
+.task-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid #f2f3f5;
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #86909c;
+}
+
+.reward {
+  color: #f77234;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.reward-free {
+  color: #00b42a;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 60px 0;
+  color: #c0c4cc;
+}
+
+.empty-state p {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+/* 加载状态 */
+.load-more-status {
+  text-align: center;
+  padding: 24px 0 8px;
+}
+
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #86909c;
+  font-size: 14px;
+}
+
+.loading-indicator .is-loading {
+  font-size: 18px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.no-more {
+  color: #c0c4cc;
+  font-size: 13px;
+}
+
+.sentinel {
+  height: 1px;
+}
+</style>
