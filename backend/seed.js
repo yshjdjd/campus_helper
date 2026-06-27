@@ -2,20 +2,25 @@
  * 样例数据插入脚本（重构版）
  * 运行方式: cd backend && node seed.js
  */
+require('dotenv').config();
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
-const config = require('./config');
 
 const SALT_ROUNDS = 10;
 
 async function seed() {
-  const conn = await mysql.createConnection(config.db);
+  const conn = await mysql.createConnection({
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || 3306,
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASS || '12232323dhw+',
+    database: process.env.DB_NAME || 'campus_helper',
+  });
 
   console.log('🔗 已连接数据库');
 
   await conn.execute('SET FOREIGN_KEY_CHECKS = 0');
   await conn.execute('TRUNCATE TABLE reviews');
-  await conn.execute('TRUNCATE TABLE task_acceptors');
   await conn.execute('TRUNCATE TABLE messages');
   await conn.execute('TRUNCATE TABLE tasks');
   await conn.execute('TRUNCATE TABLE users');
@@ -46,26 +51,22 @@ async function seed() {
   }
   console.log('✅ 已插入 8 个用户（含2个管理员）');
 
-  for (const [publisher_id, title, description, category_id, reward, status, location, deadline, max_acceptors] of [
-    [3, '帮忙取快递', '菜鸟驿站有个大件快递，自己搬不动，求帮忙搬到7号楼', 1, 5.00, 'recruiting', '菜鸟驿站', '2026-06-20 18:00:00', 1],
-    [4, '高数期末复习搭子', '找一个一起复习高数的搭档，互相讲解不会的题', 2, 0.00, 'recruiting', '图书馆三楼', '2026-06-25 00:00:00', 2],
-    [5, '篮球赛缺一人', '院际篮球赛缺一个替补，周六下午有空的同学请联系我', 3, 0.00, 'recruiting', '体育馆', '2026-06-21 14:00:00', 1],
-    [6, '出二手iPad', 'iPad Air 5，256G，国行，带Apple Pencil，九成新', 4, 3200.00, 'recruiting', null, '2026-06-30 00:00:00', null],
-    [3, '代拿外卖', '现在在实验室走不开，求帮忙去北门拿一下外卖，到了请喝奶茶', 1, 3.00, 'in_progress', '北门外卖架', '2026-06-16 12:30:00', 1],
-    [7, 'Python作业求助', 'Python大作业不会写，求大佬带一下，可以付费', 2, 50.00, 'recruiting', null, '2026-06-22 00:00:00', null],
-    [8, '招募实验志愿者', '心理学实验需要志愿者，时长约30分钟，完成后赠送小礼品', 3, 0.00, 'recruiting', '心理学院楼201', '2026-06-24 00:00:00', 5],
-    [5, '求购线性代数教材', '求购同济版线性代数第七版，二手即可，不要太旧', 4, 15.00, 'completed', null, '2026-06-15 00:00:00', 1],
+  for (const [publisher_id, title, description, category_id, reward, status, location, deadline] of [
+    [3, '帮忙取快递', '菜鸟驿站有个大件快递，自己搬不动，求帮忙搬到7号楼', 1, 5.00, 'recruiting', '菜鸟驿站', '2026-06-20 18:00:00'],
+    [4, '高数期末复习搭子', '找一个一起复习高数的搭档，互相讲解不会的题', 2, 0.00, 'recruiting', '图书馆三楼', '2026-06-25 00:00:00'],
+    [5, '篮球赛缺一人', '院际篮球赛缺一个替补，周六下午有空的同学请联系我', 3, 0.00, 'recruiting', '体育馆', '2026-06-21 14:00:00'],
+    [6, '出二手iPad', 'iPad Air 5，256G，国行，带Apple Pencil，九成新', 4, 3200.00, 'recruiting', null, '2026-06-30 00:00:00'],
+    [3, '代拿外卖', '现在在实验室走不开，求帮忙去北门拿一下外卖，到了请喝奶茶', 1, 3.00, 'in_progress', '北门外卖架', '2026-06-16 12:30:00'],
+    [7, 'Python作业求助', 'Python大作业不会写，求大佬带一下，可以付费', 2, 50.00, 'recruiting', null, '2026-06-22 00:00:00'],
+    [8, '招募实验志愿者', '心理学实验需要志愿者，时长约30分钟，完成后赠送小礼品', 3, 0.00, 'recruiting', '心理学院楼201', '2026-06-24 00:00:00'],
+    [5, '求购线性代数教材', '求购同济版线性代数第七版，二手即可，不要太旧', 4, 15.00, 'completed', null, '2026-06-15 00:00:00'],
   ]) {
-    await conn.execute('INSERT INTO tasks (publisher_id, title, description, category_id, reward, status, location, deadline, max_acceptors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [publisher_id, title, description, category_id, reward, status, location, deadline, max_acceptors]);
+    await conn.execute('INSERT INTO tasks (publisher_id, title, description, category_id, reward, status, location, deadline) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [publisher_id, title, description, category_id, reward, status, location, deadline]);
   }
   console.log('✅ 已插入 8 个任务');
 
-  // 接单数据（task_acceptors 表）
-  await conn.execute('INSERT INTO task_acceptors (task_id, user_id) VALUES (5, 4)');
   await conn.execute('UPDATE tasks SET acceptor_id = 4 WHERE id = 5');
-
-  await conn.execute('INSERT INTO task_acceptors (task_id, user_id, confirmed) VALUES (8, 6, 1)');
   await conn.execute('UPDATE tasks SET acceptor_id = 6, publisher_confirmed = 1, acceptor_confirmed = 1 WHERE id = 8');
 
   for (const [task_id, sender_id, receiver_id, content] of [

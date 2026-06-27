@@ -5,6 +5,7 @@ const messageController = require('../controllers/messageController');
 const router = express.Router();
 
 router.get('/conversations', auth, messageController.conversations);
+router.get('/unread-count', auth, messageController.unreadCount);
 router.get('/', auth, messageController.list);
 
 module.exports = router;

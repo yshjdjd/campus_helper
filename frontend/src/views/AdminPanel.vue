@@ -6,17 +6,25 @@
         <el-button type="primary" size="small" @click="showAddCategory" style="margin-bottom:12px">新增分类</el-button>
         <el-table :data="categories" border>
           <el-table-column prop="id" label="ID" width="60" />
-          <el-table-column prop="name" label="名称" />
+          <el-table-column label="名称">
+            <template #default="{ row }">
+              <span class="category-name">
+                <span v-if="row.id <= 4" class="fixed-dot"></span>
+                {{ row.name }}
+              </span>
+            </template>
+          </el-table-column>
           <el-table-column prop="sort_order" label="排序" width="80" />
           <el-table-column label="状态" width="80">
             <template #default="{ row }">
               <el-tag :type="row.is_active ? 'success' : 'info'">{{ row.is_active ? '启用' : '禁用' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="200">
+          <el-table-column label="操作" width="240">
             <template #default="{ row }">
               <el-button size="small" @click="editCategory(row)">编辑</el-button>
               <el-button size="small" :type="row.is_active ? 'warning' : 'success'" @click="toggleCategory(row)">{{ row.is_active ? '禁用' : '启用' }}</el-button>
+              <el-button v-if="row.id > 4" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -59,7 +67,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import api from '../api'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const activeTab = ref('categories')
 const categories = ref([])
@@ -103,6 +111,17 @@ async function toggleCategory(row) {
   catch (err) { ElMessage.error('操作失败') }
 }
 
+async function handleDelete(row) {
+  try {
+    await ElMessageBox.confirm(`确定要删除分类「${row.name}」吗？`, '确认删除', { type: 'warning' })
+    await api.delete(`/admin/categories/${row.id}`)
+    ElMessage.success('删除成功')
+    loadCategories()
+  } catch (err) {
+    if (err !== 'cancel') ElMessage.error(err.response?.data?.message || '删除失败')
+  }
+}
+
 async function toggleBan(row) {
   try {
     if (row.is_banned) { await api.put(`/admin/users/${row.id}/unban`); ElMessage.success('已解禁') }
@@ -117,4 +136,12 @@ onMounted(() => { loadCategories(); loadUsers() })
 <style scoped>
 .admin-panel { max-width: 900px; margin: 0 auto; }
 .admin-panel h2 { margin-bottom: 20px; }
+.category-name { display: flex; align-items: center; gap: 6px; }
+.fixed-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  background: #f56c6c;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
 </style>

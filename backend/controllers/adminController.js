@@ -41,6 +41,10 @@ const adminController = {
 
   async deleteCategory(req, res) {
     try {
+      const FIXED_IDS = [1, 2, 3, 4]; // 跑腿代拿、学业互助、招募组队、生活交易
+      if (FIXED_IDS.includes(parseInt(req.params.id))) {
+        return res.status(400).json({ code: 400, message: '固定分类不可删除' });
+      }
       await Category.delete(req.params.id);
       return res.json({ code: 200, message: '分类删除成功' });
     } catch (err) {

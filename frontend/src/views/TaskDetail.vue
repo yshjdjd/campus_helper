@@ -17,6 +17,9 @@
         </span>
         <span v-if="task.reward > 0">赏金：💰 {{ task.reward }}</span>
         <span v-if="task.location">📍 {{ task.location }}</span>
+        <span v-if="task.subject">📚 学科：{{ task.subject }}</span>
+        <span v-if="task.pickup_location">📦 代拿地：{{ task.pickup_location }}</span>
+        <span v-if="task.delivery_location">📍 目的地：{{ task.delivery_location }}</span>
         <span v-if="task.deadline">⏰ 截止：{{ formatDate(task.deadline) }}</span>
         <span>接单人数：{{ acceptors.length }}{{ task.max_acceptors ? ` / ${task.max_acceptors}` : '（不限）' }}</span>
       </div>

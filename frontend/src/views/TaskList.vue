@@ -20,7 +20,7 @@
         <el-button type="primary" size="large" @click="onSearch" class="search-btn">搜索</el-button>
       </div>
       <div class="filters">
-        <el-select v-model="filters.category_id" clearable placeholder="全部分类" size="large" @change="onSearch">
+        <el-select v-model="filters.category_id" clearable placeholder="全部分类" size="large" @change="onCategoryChange">
           <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
         </el-select>
         <el-select v-model="filters.status" clearable placeholder="全部状态" size="large" @change="onSearch">
@@ -28,6 +28,17 @@
           <el-option label="进行中" value="in_progress" />
           <el-option label="已完成" value="completed" />
         </el-select>
+      </div>
+      <!-- 学业互助：学科搜索 -->
+      <div class="extra-filters" v-if="filters.category_id == 2">
+        <el-select v-model="filters.subject" clearable filterable allow-create placeholder="筛选或输入学科" size="large" @change="onSearch" class="extra-input">
+          <el-option v-for="s in subjects" :key="s" :label="s" :value="s" />
+        </el-select>
+      </div>
+      <!-- 跑腿代拿：地点搜索 -->
+      <div class="extra-filters" v-if="filters.category_id == 1">
+        <el-input v-model="filters.pickup_location" placeholder="搜索代拿地..." size="large" clearable @keyup.enter="onSearch" @clear="onSearch" class="extra-input" />
+        <el-input v-model="filters.delivery_location" placeholder="搜索目的地..." size="large" clearable @keyup.enter="onSearch" @clear="onSearch" class="extra-input" />
       </div>
     </div>
 
@@ -41,6 +52,17 @@
           </div>
           <h3 class="task-title">{{ task.title }}</h3>
           <p class="task-desc">{{ task.description?.substring(0, 80) }}...</p>
+          <div class="task-subject" v-if="task.subject">
+            <span class="subject-tag">📚 {{ task.subject }}</span>
+          </div>
+          <div class="task-locations" v-if="task.pickup_location">
+            <span class="loc-tag">📦 代拿地：{{ task.pickup_location }}</span>
+            <span class="loc-arrow">→</span>
+            <span class="loc-tag">📍 目的地：{{ task.delivery_location }}</span>
+          </div>
+          <div class="task-team" v-if="task.category_id === 3 && task.max_acceptors">
+            <span class="team-tag">👥 {{ task.acceptor_count || 0 }}/{{ task.max_acceptors }} 人（剩余 {{ Math.max(0, task.max_acceptors - (task.acceptor_count || 0)) }} 人）</span>
+          </div>
           <div class="task-footer">
             <div class="task-meta">
               <el-avatar :size="20" :src="task.publisher_avatar || ''" />
@@ -60,12 +82,12 @@
     </div>
 
     <!-- 加载状态 / 没有更多 -->
-    <div class="load-more-status">
+    <div class="load-more-status" v-if="tasks.length > 0">
       <div v-if="loading" class="loading-indicator">
         <el-icon class="is-loading"><Loading /></el-icon>
         <span>加载中...</span>
       </div>
-      <div v-else-if="noMore && tasks.length > 0" class="no-more">
+      <div v-else-if="noMore" class="no-more">
         <span>—— 已经到底了 ——</span>
       </div>
       <div v-else ref="sentinelRef" class="sentinel"></div>
@@ -88,7 +110,14 @@ const limit = 9
 const loading = ref(false)
 const noMore = ref(false)
 const sentinelRef = ref(null)
-const filters = reactive({ category_id: '', status: '', keyword: '' })
+const filters = reactive({ category_id: '', status: '', keyword: '', subject: '', pickup_location: '', delivery_location: '' })
+
+const subjects = [
+  '高等数学', '线性代数', '概率论', '大学物理', '大学英语',
+  'Python', 'C语言', 'Java', '数据结构', '操作系统',
+  '计算机网络', '数据库', '人工智能', '机器学习',
+  '会计学', '经济学', '管理学', '法学', '医学', '其他',
+]
 
 let observer = null
 
@@ -105,6 +134,9 @@ function buildParams() {
   if (filters.category_id) params.category_id = filters.category_id
   if (filters.status) params.status = filters.status
   if (filters.keyword) params.keyword = filters.keyword
+  if (filters.subject) params.subject = filters.subject
+  if (filters.pickup_location) params.pickup_location = filters.pickup_location
+  if (filters.delivery_location) params.delivery_location = filters.delivery_location
   return params
 }
 
@@ -134,11 +166,21 @@ async function loadTasks() {
   }
 }
 
+/** 切换分类时清除专属筛选项 */
+function onCategoryChange() {
+  filters.subject = ''
+  filters.pickup_location = ''
+  filters.delivery_location = ''
+  onSearch()
+}
+
 /** 搜索/筛选时重置 */
 function onSearch() {
+  if (observer) { observer.disconnect(); observer = null }
   page.value = 1
   noMore.value = false
   tasks.value = []
+  loading.value = false
   loadTasks()
 }
 
@@ -246,6 +288,35 @@ onUnmounted(() => {
   color: rgba(255, 255, 255, 0.7);
 }
 
+.extra-filters {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+.extra-input {
+  width: 200px;
+}
+.extra-input :deep(.el-input__wrapper) {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+.extra-input :deep(.el-input__inner) {
+  color: #fff;
+}
+.extra-input :deep(.el-input__inner::placeholder) {
+  color: rgba(255, 255, 255, 0.7);
+}
+.extra-input :deep(.el-select .el-input__wrapper) {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+.extra-input :deep(.el-select .el-input__inner) {
+  color: #fff;
+}
+
 /* 任务卡片 */
 .task-card {
   cursor: pointer;
@@ -276,8 +347,46 @@ onUnmounted(() => {
 .task-desc {
   color: #86909c;
   font-size: 13px;
-  margin: 0 0 16px;
+  margin: 0 0 10px;
   line-height: 1.6;
+}
+
+.task-subject { margin-bottom: 10px; }
+.subject-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  background: linear-gradient(135deg, #fef7e0 0%, #fdecc8 100%);
+  border: 1px solid #f3d19e;
+  border-radius: 6px;
+  color: #b8860b;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.task-locations {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, #f0f5ff 0%, #e8f4fd 100%);
+  border-radius: 8px;
+  border: 1px solid #d6e4ff;
+  font-size: 12px;
+}
+.loc-tag { color: #4a6fa5; font-weight: 500; }
+.loc-arrow { color: #a0c4ff; font-weight: bold; }
+
+.task-team { margin-bottom: 10px; }
+.team-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  border: 1px solid #a5d6a7;
+  border-radius: 6px;
+  color: #2e7d32;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .task-footer {

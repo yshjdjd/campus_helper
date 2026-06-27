@@ -1,12 +1,12 @@
 const db = require('../config/db');
 
 const Task = {
-  async create({ publisher_id, title, description, category_id, reward = 0, deadline, location, max_acceptors }) {
+  async create({ publisher_id, title, description, category_id, reward = 0, deadline, location, max_acceptors, pickup_location, delivery_location, subject }) {
     const formattedDeadline = deadline ? new Date(deadline).toISOString().slice(0, 19).replace('T', ' ') : null;
     const [result] = await db.execute(
-      `INSERT INTO tasks (publisher_id, title, description, category_id, reward, deadline, location, max_acceptors)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [publisher_id, title, description, category_id, reward, formattedDeadline, location || null, max_acceptors || null]
+      `INSERT INTO tasks (publisher_id, title, description, category_id, reward, deadline, location, max_acceptors, pickup_location, delivery_location, subject)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [publisher_id, title, description, category_id, reward, formattedDeadline, location || null, max_acceptors || null, pickup_location || null, delivery_location || null, subject || null]
     );
     return result;
   },
@@ -27,11 +27,13 @@ const Task = {
     return rows[0] || null;
   },
 
-  async findAll({ category_id, status, keyword, page = 1, limit = 10 } = {}) {
-    let sql = `SELECT t.*, u.username AS publisher_name, u.avatar AS publisher_avatar, c.name AS category_name
+  async findAll({ category_id, status, keyword, subject, pickup_location, delivery_location, page = 1, limit = 10 } = {}) {
+    let sql = `SELECT t.*, u.username AS publisher_name, u.avatar AS publisher_avatar, c.name AS category_name,
+                      COALESCE(ac.cnt, 0) AS acceptor_count
                FROM tasks t
                LEFT JOIN users u ON t.publisher_id = u.id
                LEFT JOIN categories c ON t.category_id = c.id
+               LEFT JOIN (SELECT task_id, COUNT(*) AS cnt FROM task_acceptors GROUP BY task_id) ac ON t.id = ac.task_id
                WHERE 1=1`;
     const params = [];
 
@@ -40,7 +42,7 @@ const Task = {
     if (status) {
       sql += ' AND t.status = ?';
       params.push(status);
-    } else if (!keyword) {
+    } else if (!keyword && !subject && !pickup_location && !delivery_location) {
       sql += " AND t.status NOT IN ('completed', 'cancelled')";
     }
 
@@ -49,7 +51,22 @@ const Task = {
       params.push(`%${keyword}%`, `%${keyword}%`);
     }
 
-    const countSql = sql.replace(/SELECT .+ FROM/, 'SELECT COUNT(*) AS total FROM');
+    if (subject) {
+      sql += ' AND t.subject LIKE ?';
+      params.push(`%${subject}%`);
+    }
+
+    if (pickup_location) {
+      sql += ' AND t.pickup_location LIKE ?';
+      params.push(`%${pickup_location}%`);
+    }
+
+    if (delivery_location) {
+      sql += ' AND t.delivery_location LIKE ?';
+      params.push(`%${delivery_location}%`);
+    }
+
+    const countSql = `SELECT COUNT(*) AS total FROM (${sql}) AS _cnt`;
     const [countRows] = await db.execute(countSql, params);
     const total = countRows[0].total;
 

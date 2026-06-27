@@ -50,6 +50,25 @@ const Message = {
     );
     return result;
   },
+
+  async countUnread(userId) {
+    const [rows] = await db.execute(
+      'SELECT COUNT(*) AS count FROM messages WHERE receiver_id = ? AND is_read = 0',
+      [userId]
+    );
+    return rows[0].count;
+  },
+
+  async countUnreadByConversation(userId) {
+    const [rows] = await db.execute(
+      `SELECT task_id, COUNT(*) AS unread_count
+       FROM messages
+       WHERE receiver_id = ? AND is_read = 0
+       GROUP BY task_id`,
+      [userId]
+    );
+    return rows;
+  },
 };
 
 module.exports = Message;

@@ -14,9 +14,11 @@
             <el-button text class="nav-btn" @click="router.push('/tasks/create')">
               <el-icon><Plus /></el-icon> 发布任务
             </el-button>
-            <el-button text class="nav-btn" @click="router.push('/messages')">
-              <el-icon><ChatDotRound /></el-icon> 消息
-            </el-button>
+            <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="msg-badge">
+              <el-button text class="nav-btn" @click="router.push('/messages')">
+                <el-icon><ChatDotRound /></el-icon> 消息
+              </el-button>
+            </el-badge>
             <el-button text class="nav-btn" @click="router.push('/my')">
               <el-icon><List /></el-icon> 我的任务
             </el-button>
@@ -50,17 +52,57 @@
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { HomeFilled, Plus, ChatDotRound, List, Setting } from '@element-plus/icons-vue'
+import { io } from 'socket.io-client'
+import api from '../api'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
+const unreadCount = ref(0)
+let socket = null
+
+// 加载初始未读数
+async function loadUnreadCount() {
+  if (!authStore.isLoggedIn) return
+  try {
+    const res = await api.get('/messages/unread-count')
+    unreadCount.value = res.data.data.count
+  } catch (e) { /* ignore */ }
+}
+
+// 连接 WebSocket 监听新消息
+function initSocket() {
+  if (!authStore.isLoggedIn || socket) return
+  socket = io('/', { auth: { token: authStore.token } })
+  socket.on('new_message', () => {
+    unreadCount.value++
+  })
+}
+
+// 进入消息页时清零
+watch(() => route.path, (path) => {
+  if (path === '/messages') {
+    unreadCount.value = 0
+  }
+})
 
 function handleUserMenu(command) {
   if (command === 'profile') router.push('/profile')
-  else if (command === 'logout') { authStore.logout(); router.push('/login') }
+  else if (command === 'logout') { authStore.logout(); socket?.disconnect(); router.push('/login') }
 }
+
+onMounted(() => {
+  loadUnreadCount()
+  initSocket()
+})
+
+onUnmounted(() => {
+  socket?.disconnect()
+})
 </script>
 
 <style scoped>
@@ -94,9 +136,7 @@ function handleUserMenu(command) {
   user-select: none;
 }
 
-.logo-icon {
-  font-size: 28px;
-}
+.logo-icon { font-size: 28px; }
 
 .logo-text {
   font-size: 20px;
@@ -107,11 +147,7 @@ function handleUserMenu(command) {
   letter-spacing: 1px;
 }
 
-.nav {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
+.nav { display: flex; align-items: center; gap: 4px; }
 
 .nav-btn {
   color: #cbd5e1 !important;
@@ -127,6 +163,11 @@ function handleUserMenu(command) {
   background: rgba(255, 255, 255, 0.1) !important;
 }
 
+.msg-badge {
+  display: flex;
+  align-items: center;
+}
+
 .user-avatar {
   display: flex;
   align-items: center;
@@ -137,15 +178,9 @@ function handleUserMenu(command) {
   transition: background 0.2s;
 }
 
-.user-avatar:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
+.user-avatar:hover { background: rgba(255, 255, 255, 0.1); }
 
-.user-name {
-  color: #e2e8f0;
-  font-size: 14px;
-  font-weight: 500;
-}
+.user-name { color: #e2e8f0; font-size: 14px; font-weight: 500; }
 
 .register-btn {
   background: rgba(255, 255, 255, 0.15) !important;

@@ -17,6 +17,9 @@ router.post('/', auth, [
   body('reward').optional().isFloat({ min: 0 }),
   body('deadline').optional().isISO8601(),
   body('location').optional().isLength({ max: 255 }),
+  body('pickup_location').optional().isLength({ max: 255 }),
+  body('delivery_location').optional().isLength({ max: 255 }),
+  body('subject').optional().isLength({ max: 64 }),
   body('max_acceptors').optional({ values: 'null' }).isInt({ min: 1 }).withMessage('接单人数上限必须为正整数'),
 ], validate, taskController.create);
 

@@ -8,11 +8,32 @@ const taskController = {
       const user = await User.findById(req.user.id);
       if (user.is_banned) return res.status(403).json({ code: 403, message: '账号已被禁用，无法发布任务' });
 
-      const { title, description, category_id, reward, deadline, location, max_acceptors } = req.body;
+      const { title, description, category_id, reward, deadline, location, max_acceptors, pickup_location, delivery_location, subject } = req.body;
+
+      // 跑腿代拿分类 (id=1) 必须填写代拿地和目的地
+      if (parseInt(category_id) === 1) {
+        if (!pickup_location || !pickup_location.trim()) {
+          return res.status(400).json({ code: 400, message: '跑腿代拿任务必须填写代拿地' });
+        }
+        if (!delivery_location || !delivery_location.trim()) {
+          return res.status(400).json({ code: 400, message: '跑腿代拿任务必须填写目的地' });
+        }
+      }
+
+      // 学业互助分类 (id=2) 必须填写学科
+      if (parseInt(category_id) === 2) {
+        if (!subject || !subject.trim()) {
+          return res.status(400).json({ code: 400, message: '学业互助任务必须填写学科' });
+        }
+      }
+
       const result = await Task.create({
         publisher_id: req.user.id,
         title, description, category_id, reward, deadline, location,
         max_acceptors: max_acceptors ? parseInt(max_acceptors) : null,
+        pickup_location: pickup_location || null,
+        delivery_location: delivery_location || null,
+        subject: subject || null,
       });
       return res.status(201).json({ code: 201, message: '任务发布成功', data: { id: result.insertId } });
     } catch (err) {
@@ -23,9 +44,9 @@ const taskController = {
 
   async list(req, res) {
     try {
-      const { category_id, status, keyword, page = 1, limit = 10 } = req.query;
+      const { category_id, status, keyword, subject, pickup_location, delivery_location, page = 1, limit = 10 } = req.query;
       const result = await Task.findAll({
-        category_id, status, keyword,
+        category_id, status, keyword, subject, pickup_location, delivery_location,
         page: parseInt(page), limit: parseInt(limit),
       });
       return res.json({ code: 200, data: result });
