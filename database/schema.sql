@@ -10,9 +10,11 @@ USE campus_helper;
 CREATE TABLE IF NOT EXISTS categories (
   id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name       VARCHAR(64) NOT NULL UNIQUE COMMENT '分类名称',
-  sort_order INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '排序权重',
-  is_active  TINYINT(1)  NOT NULL DEFAULT 1 COMMENT '是否启用',
-  created_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
+  sort_order      INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '排序权重',
+  is_active       TINYINT(1)  NOT NULL DEFAULT 1 COMMENT '是否启用',
+  template_config JSON         DEFAULT NULL COMMENT '自定义字段模板',
+  allowed_roles   JSON         DEFAULT NULL COMMENT '允许发布的身份，NULL表示不限',
+  created_at      TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ==================== Users Table ====================
@@ -41,14 +43,16 @@ CREATE TABLE IF NOT EXISTS tasks (
   description  TEXT          NOT NULL COMMENT '任务描述',
   category_id  INT UNSIGNED  NOT NULL COMMENT '分类ID',
   reward       DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '赏金/积分',
-  status              ENUM('recruiting', 'in_progress', 'completed', 'cancelled') NOT NULL DEFAULT 'recruiting',
+  status              ENUM('recruiting', 'in_progress', 'completed', 'cancelled', 'pinned') NOT NULL DEFAULT 'recruiting',
   publisher_confirmed TINYINT(1) NOT NULL DEFAULT 0 COMMENT '发布者确认完成',
   acceptor_confirmed  TINYINT(1) NOT NULL DEFAULT 0 COMMENT '接单者确认完成',
+  is_featured         TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否精华',
   deadline         DATETIME      DEFAULT NULL COMMENT '截止时间',
   location         VARCHAR(255)  DEFAULT NULL COMMENT '地点',
   pickup_location  VARCHAR(255)  DEFAULT NULL COMMENT '代拿地（跑腿代拿专用）',
   delivery_location VARCHAR(255) DEFAULT NULL COMMENT '目的地（跑腿代拿专用）',
   subject          VARCHAR(64)   DEFAULT NULL COMMENT '学科（学业互助专用）',
+  custom_data  JSON          DEFAULT NULL COMMENT '自定义字段值（JSON）',
   created_at   TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at   TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (publisher_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -106,3 +110,27 @@ CREATE TABLE IF NOT EXISTS reviews (
   UNIQUE KEY uk_task_reviewer (task_id, reviewer_id),
   INDEX idx_reviewee (reviewee_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ==================== Comments Table ====================
+CREATE TABLE IF NOT EXISTS comments (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  parent_id   INT UNSIGNED  DEFAULT NULL COMMENT '父评论ID（回复用）',
+  task_id     INT UNSIGNED  NOT NULL COMMENT '关联任务ID',
+  user_id     INT UNSIGNED  NOT NULL COMMENT '评论者ID',
+  content     TEXT          NOT NULL COMMENT '评论内容',
+  created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_task (task_id),
+  INDEX idx_parent (parent_id),
+  INDEX idx_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ==================== Default Categories ====================
+INSERT IGNORE INTO categories (id, name, sort_order) VALUES
+  (1, '跑腿代拿', 1),
+  (2, '学业互助', 2),
+  (3, '招募组队', 3),
+  (4, '生活交易', 4),
+  (5, '消息通知', 5),
+  (6, '校园反馈', 6);

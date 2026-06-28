@@ -1,54 +1,79 @@
 <template>
   <div class="task-list">
-    <!-- Hero 搜索区域 -->
-    <div class="hero-section">
-      <h1 class="hero-title">发现校园互助任务</h1>
-      <p class="hero-subtitle">找人帮忙、组队学习、二手交易，一站搞定</p>
-      <div class="search-bar">
-        <el-input
-          v-model="filters.keyword"
-          placeholder="搜索任务标题或描述..."
-          size="large"
-          clearable
-          @keyup.enter="onSearch"
-          class="search-input"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
+    <!-- 分类滑块 -->
+    <div class="category-slider">
+      <div class="slider-wrapper">
+        <button class="slider-arrow slider-left" @click="scrollSlider(-1)">◀</button>
+        <div class="category-cards" ref="sliderRef">
+          <div :class="['category-card', { active: !filters.category_id }]" @click="clearCategory">
+            <span class="category-icon">🌐</span>
+            <span class="category-name">全部</span>
+          </div>
+          <div
+            v-for="c in categories"
+            :key="c.id"
+            :class="['category-card', { active: filters.category_id == c.id }]"
+            @click="selectCategory(c)"
+          >
+            <span class="category-icon">{{ categoryIcons[c.id] || '📌' }}</span>
+            <span class="category-name">{{ c.name }}</span>
+          </div>
+        </div>
+        <button class="slider-arrow slider-right" @click="scrollSlider(1)">▶</button>
+      </div>
+    </div>
+
+    <!-- 粘性搜索工具栏 -->
+    <div class="search-toolbar" ref="toolbarRef">
+      <div class="toolbar-inner">
+        <div class="search-row">
+          <el-input v-model="filters.keyword" placeholder="搜索任务..." size="large" clearable @keyup.enter="onSearch" @clear="onSearch" class="search-input">
+            <template #prefix><el-icon><Search /></el-icon></template>
+          </el-input>
+          <el-select v-model="filters.status" clearable placeholder="状态" size="large" @change="onSearch" class="status-select">
+            <el-option label="招募中" value="recruiting" />
+            <el-option label="进行中" value="in_progress" />
+            <el-option label="已完成" value="completed" />
+          </el-select>
+          <el-button type="primary" size="large" @click="onSearch" class="search-btn">
+            <el-icon><Search /></el-icon> 搜索
+          </el-button>
+        </div>
+        <div class="search-row" v-if="searchableFields.length > 0">
+          <el-select v-if="searchableFields.some(f => f.key === 'subject')" v-model="filters.searchValues.subject" clearable filterable allow-create placeholder="筛选学科" size="default" @change="onSearch" style="width:180px">
+            <el-option v-for="s in subjectOptions" :key="s" :label="s" :value="s" />
+          </el-select>
+          <template v-for="f in searchableFields" :key="f.key">
+            <el-input v-if="f.key !== 'subject'" v-model="filters.searchValues[f.key]" :placeholder="'搜索' + f.label" size="default" clearable @keyup.enter="onSearch" @clear="onSearch" style="width:180px" />
           </template>
-        </el-input>
-        <el-button type="primary" size="large" @click="onSearch" class="search-btn">搜索</el-button>
-      </div>
-      <div class="filters">
-        <el-select v-model="filters.category_id" clearable placeholder="全部分类" size="large" @change="onCategoryChange">
-          <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
-        </el-select>
-        <el-select v-model="filters.status" clearable placeholder="全部状态" size="large" @change="onSearch">
-          <el-option label="招募中" value="recruiting" />
-          <el-option label="进行中" value="in_progress" />
-          <el-option label="已完成" value="completed" />
-        </el-select>
-      </div>
-      <!-- 学业互助：学科搜索 -->
-      <div class="extra-filters" v-if="filters.category_id == 2">
-        <el-select v-model="filters.subject" clearable filterable allow-create placeholder="筛选或输入学科" size="large" @change="onSearch" class="extra-input">
-          <el-option v-for="s in subjects" :key="s" :label="s" :value="s" />
-        </el-select>
-      </div>
-      <!-- 跑腿代拿：地点搜索 -->
-      <div class="extra-filters" v-if="filters.category_id == 1">
-        <el-input v-model="filters.pickup_location" placeholder="搜索代拿地..." size="large" clearable @keyup.enter="onSearch" @clear="onSearch" class="extra-input" />
-        <el-input v-model="filters.delivery_location" placeholder="搜索目的地..." size="large" clearable @keyup.enter="onSearch" @clear="onSearch" class="extra-input" />
+        </div>
+        <div class="search-row" v-if="filters.category_id == 4">
+          <span class="price-label">💰 金额</span>
+          <el-input-number v-model="filters.reward_min" placeholder="最低" :min="0" size="default" @change="onSearch" style="width:130px" />
+          <span class="price-sep">—</span>
+          <el-input-number v-model="filters.reward_max" placeholder="最高" :min="0" size="default" @change="onSearch" style="width:130px" />
+          <el-button v-if="filters.reward_min || filters.reward_max" text size="small" @click="filters.reward_min=null;filters.reward_max=null;onSearch()">清除</el-button>
+        </div>
+        <div class="active-filters" v-if="hasActiveFilters">
+          <el-tag v-if="filters.keyword" closable type="primary" @close="filters.keyword='';onSearch()">🔍 {{ filters.keyword }}</el-tag>
+          <el-tag v-if="filters.status" closable type="warning" @close="filters.status='';onSearch()">{{ statusMap[filters.status] }}</el-tag>
+          <el-tag v-for="(v,k) in filters.searchValues" :key="k" v-if="v" closable @close="filters.searchValues[k]='';onSearch()">{{ k }}: {{ v }}</el-tag>
+          <el-button v-if="hasActiveFilters" text type="danger" size="small" @click="clearAllFilters">清除全部</el-button>
+        </div>
       </div>
     </div>
 
     <!-- 任务卡片 -->
-    <el-row :gutter="20">
+    <div ref="taskSectionRef">
+    <TransitionGroup name="task-list" tag="div">
+    <el-row :gutter="20" key="row">
       <el-col :xs="24" :sm="12" :md="8" v-for="task in tasks" :key="task.id">
         <el-card class="task-card" @click="router.push(`/tasks/${task.id}`)">
           <div class="task-header">
             <el-tag type="info" size="small">{{ task.category_name }}</el-tag>
-            <el-tag :type="statusTagMap[task.status]" effect="plain" size="small">{{ statusMap[task.status] }}</el-tag>
+            <el-tag v-if="task.is_featured" type="danger" size="small" effect="dark">🔥 精华</el-tag>
+            <el-tag v-if="task.status === 'pinned'" type="info" effect="plain" size="small">📌 固定</el-tag>
+            <el-tag v-else-if="task.category_id !== 6" :type="statusTagMap[task.status]" effect="plain" size="small">{{ statusMap[task.status] }}</el-tag>
           </div>
           <h3 class="task-title">{{ task.title }}</h3>
           <p class="task-desc">{{ task.description?.substring(0, 80) }}...</p>
@@ -63,17 +88,24 @@
           <div class="task-team" v-if="task.category_id === 3 && task.max_acceptors">
             <span class="team-tag">👥 {{ task.acceptor_count || 0 }}/{{ task.max_acceptors }} 人（剩余 {{ Math.max(0, task.max_acceptors - (task.acceptor_count || 0)) }} 人）</span>
           </div>
+          <div class="task-custom" v-if="task.custom_data">
+            <span v-for="(val, key) in parseCustomData(task.custom_data)" :key="key" class="custom-tag">
+              {{ key }}：{{ val }}
+            </span>
+          </div>
           <div class="task-footer">
             <div class="task-meta">
               <el-avatar :size="20" :src="task.publisher_avatar || ''" />
               <span>{{ task.publisher_name }}</span>
             </div>
             <span class="reward" v-if="task.reward > 0">💰 {{ task.reward }}</span>
-            <span class="reward-free" v-else>免费</span>
+            <span class="reward-free" v-else-if="task.category_id !== 6">免费</span>
           </div>
         </el-card>
       </el-col>
     </el-row>
+    </TransitionGroup>
+    </div>
 
     <!-- 空状态 -->
     <div v-if="tasks.length === 0 && !loading" class="empty-state">
@@ -96,7 +128,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Box, Loading } from '@element-plus/icons-vue'
 import api from '../api'
@@ -110,9 +142,13 @@ const limit = 9
 const loading = ref(false)
 const noMore = ref(false)
 const sentinelRef = ref(null)
-const filters = reactive({ category_id: '', status: '', keyword: '', subject: '', pickup_location: '', delivery_location: '' })
+const sliderRef = ref(null)
+const toolbarRef = ref(null)
+const filters = reactive({ category_id: '', status: '', keyword: '', searchValues: {}, reward_min: null, reward_max: null })
+const searchableFields = ref([])
+const taskSectionRef = ref(null)
 
-const subjects = [
+const subjectOptions = [
   '高等数学', '线性代数', '概率论', '大学物理', '大学英语',
   'Python', 'C语言', 'Java', '数据结构', '操作系统',
   '计算机网络', '数据库', '人工智能', '机器学习',
@@ -121,8 +157,63 @@ const subjects = [
 
 let observer = null
 
-const statusMap = { recruiting: '招募中', in_progress: '进行中', completed: '已完成', cancelled: '已取消' }
-const statusTagMap = { recruiting: 'primary', in_progress: 'warning', completed: 'success', cancelled: 'info' }
+const categoryIcons = {
+  1: '🏃', 2: '📚', 3: '🤝', 4: '🛒', 5: '🔔', 6: '💬',
+  7: '📌', 8: '📌', 9: '📌', 10: '📌',
+}
+
+function selectCategory(c) {
+  filters.category_id = c.id
+  onCategoryChange(c.id)
+  nextTick(() => {
+    if (taskSectionRef.value) {
+      taskSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  })
+}
+
+const hasActiveFilters = computed(() => {
+  if (filters.keyword || filters.status) return true
+  if (filters.reward_min !== null || filters.reward_max !== null) return true
+  return Object.values(filters.searchValues).some(v => v)
+})
+
+function clearCategory() {
+  filters.category_id = ''
+  onCategoryChange('')
+}
+
+function clearAllFilters() {
+  filters.keyword = ''
+  filters.status = ''
+  filters.searchValues = {}
+  filters.reward_min = null
+  filters.reward_max = null
+  onSearch()
+}
+
+function scrollSlider(dir) {
+  if (sliderRef.value) {
+    sliderRef.value.scrollBy({ left: dir * 280, behavior: 'smooth' })
+  }
+}
+
+const statusMap = { recruiting: '招募中', in_progress: '进行中', completed: '已完成', cancelled: '已取消', pinned: '固定帖子' }
+const statusTagMap = { recruiting: 'primary', in_progress: 'warning', completed: 'success', cancelled: 'info', pinned: '' }
+
+function parseCustomData(data) {
+  if (!data) return {}
+  try {
+    const obj = typeof data === 'string' ? JSON.parse(data) : data
+    // 过滤已有专属 UI 的字段
+    const known = ['pickup_location', 'delivery_location', 'subject']
+    const filtered = {}
+    for (const [k, v] of Object.entries(obj)) {
+      if (!known.includes(k) && v) filtered[k] = v
+    }
+    return filtered
+  } catch { return {} }
+}
 
 async function loadCategories() {
   try { const res = await api.get('/categories'); categories.value = res.data.data }
@@ -134,9 +225,18 @@ function buildParams() {
   if (filters.category_id) params.category_id = filters.category_id
   if (filters.status) params.status = filters.status
   if (filters.keyword) params.keyword = filters.keyword
-  if (filters.subject) params.subject = filters.subject
-  if (filters.pickup_location) params.pickup_location = filters.pickup_location
-  if (filters.delivery_location) params.delivery_location = filters.delivery_location
+  // 通过已知列传递常用搜索字段
+  if (filters.searchValues.subject) params.subject = filters.searchValues.subject
+  if (filters.searchValues.pickup_location) params.pickup_location = filters.searchValues.pickup_location
+  if (filters.searchValues.delivery_location) params.delivery_location = filters.searchValues.delivery_location
+  // 其他自定义字段通过 search_fields JSON 传递
+  const custom = {}
+  for (const [k, v] of Object.entries(filters.searchValues)) {
+    if (v && !['subject', 'pickup_location', 'delivery_location'].includes(k)) custom[k] = v
+  }
+  if (Object.keys(custom).length > 0) params.search_fields = JSON.stringify(custom)
+  if (filters.reward_min !== null && filters.reward_min !== undefined) params.reward_min = filters.reward_min
+  if (filters.reward_max !== null && filters.reward_max !== undefined) params.reward_max = filters.reward_max
   return params
 }
 
@@ -166,11 +266,20 @@ async function loadTasks() {
   }
 }
 
-/** 切换分类时清除专属筛选项 */
-function onCategoryChange() {
-  filters.subject = ''
-  filters.pickup_location = ''
-  filters.delivery_location = ''
+/** 切换分类时动态加载搜索字段 */
+function onCategoryChange(val) {
+  filters.searchValues = {}
+  filters.reward_min = null
+  filters.reward_max = null
+  const cat = categories.value.find(c => c.id == val)
+  if (cat && cat.template_config) {
+    let tpl
+    try { tpl = typeof cat.template_config === 'string' ? JSON.parse(cat.template_config) : cat.template_config }
+    catch { tpl = [] }
+    searchableFields.value = (Array.isArray(tpl) ? tpl : []).filter(f => f.searchable)
+  } else {
+    searchableFields.value = []
+  }
   onSearch()
 }
 
@@ -210,111 +319,136 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Hero 搜索区域 */
-.hero-section {
-  text-align: center;
-  padding: 40px 20px 32px;
-  margin-bottom: 32px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 16px;
-  color: #fff;
+/* 粘性搜索工具栏 */
+.search-toolbar {
+  position: sticky;
+  top: 64px;
+  z-index: 50;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 12px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }
-
-.hero-title {
-  font-size: 28px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  letter-spacing: 1px;
+.toolbar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
 }
-
-.hero-subtitle {
-  font-size: 15px;
-  opacity: 0.85;
-  margin-bottom: 28px;
-}
-
-.search-bar {
+.search-row {
   display: flex;
-  max-width: 640px;
-  margin: 0 auto 20px;
-  gap: 12px;
+  gap: 10px;
+  align-items: center;
 }
-
-.search-input {
-  flex: 1;
-}
-
+.search-row + .search-row { margin-top: 10px; }
+.search-input { flex: 1; }
 .search-input :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.95);
   border-radius: 12px !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
-  padding: 4px 16px;
-  height: 48px;
+  box-shadow: none !important;
 }
-
-.search-input :deep(.el-input__inner) {
-  font-size: 16px;
-}
-
+.status-select { width: 130px; flex-shrink: 0; }
+.status-select :deep(.el-input__wrapper) { border-radius: 12px !important; }
 .search-btn {
   height: 48px;
-  padding: 0 28px;
+  padding: 0 24px;
   border-radius: 12px !important;
-  font-size: 16px !important;
-  font-weight: 600 !important;
+  font-size: 15px !important;
 }
 
-.filters {
+.active-filters {
   display: flex;
-  justify-content: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
 }
+.price-label { color: #909399; font-size: 14px; flex-shrink: 0; }
+.price-sep { color: #c0c4cc; margin: 0 4px; }
 
-.filters :deep(.el-select) {
-  width: 160px;
+/* 分类滑块 */
+.category-slider {
+  margin-bottom: 16px;
 }
-
-.filters :deep(.el-select .el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 10px !important;
-  box-shadow: none !important;
-}
-
-.filters :deep(.el-select .el-input__inner) {
-  color: #fff;
-}
-
-.filters :deep(.el-select .el-input__inner::placeholder) {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.extra-filters {
+.slider-wrapper {
   display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.slider-arrow {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  border: 1px solid #e4e7ed;
+  border-radius: 50%;
+  background: #fff;
+  color: #606266;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  transition: all 0.2s;
+}
+.slider-arrow:hover {
+  border-color: #409eff;
+  color: #409eff;
+  background: #ecf5ff;
+}
+.category-cards {
+  flex: 1;
+  display: flex;
   gap: 12px;
-  margin-top: 12px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 4px 4px 8px;
+  scrollbar-width: none;
 }
-.extra-input {
-  width: 200px;
+.category-cards::-webkit-scrollbar { display: none; }
+.category-card {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  background: #fff;
+  border: 2px solid #e4e7ed;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  user-select: none;
+  white-space: nowrap;
 }
-.extra-input :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 10px !important;
-  box-shadow: none !important;
+.category-card:hover {
+  border-color: #a0c4ff;
+  background: #f5f9ff;
+  box-shadow: 0 4px 16px rgba(64, 158, 255, 0.1);
 }
-.extra-input :deep(.el-input__inner) {
-  color: #fff;
+.category-card.active {
+  border-color: #409eff;
+  background: linear-gradient(135deg, #ecf5ff 0%, #d9ecff 100%);
+  box-shadow: 0 4px 16px rgba(64, 158, 255, 0.2);
 }
-.extra-input :deep(.el-input__inner::placeholder) {
-  color: rgba(255, 255, 255, 0.7);
+.category-icon {
+  font-size: 24px;
+  flex-shrink: 0;
 }
-.extra-input :deep(.el-select .el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 10px !important;
-  box-shadow: none !important;
+.category-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
 }
-.extra-input :deep(.el-select .el-input__inner) {
-  color: #fff;
+
+/* 任务列表过渡动画 */
+.task-list-enter-active {
+  transition: all 0.4s ease;
+}
+.task-list-leave-active {
+  transition: all 0.2s ease;
+}
+.task-list-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+.task-list-leave-to {
+  opacity: 0;
 }
 
 /* 任务卡片 */
@@ -387,6 +521,17 @@ onUnmounted(() => {
   color: #2e7d32;
   font-size: 12px;
   font-weight: 500;
+}
+
+.task-custom { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.custom-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  color: #666;
+  font-size: 11px;
 }
 
 .task-footer {

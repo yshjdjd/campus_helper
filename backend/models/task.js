@@ -1,12 +1,12 @@
 const db = require('../config/db');
 
 const Task = {
-  async create({ publisher_id, title, description, category_id, reward = 0, deadline, location, max_acceptors, pickup_location, delivery_location, subject }) {
+  async create({ publisher_id, title, description, category_id, reward = 0, deadline, location, max_acceptors, pickup_location, delivery_location, subject, custom_data, status }) {
     const formattedDeadline = deadline ? new Date(deadline).toISOString().slice(0, 19).replace('T', ' ') : null;
     const [result] = await db.execute(
-      `INSERT INTO tasks (publisher_id, title, description, category_id, reward, deadline, location, max_acceptors, pickup_location, delivery_location, subject)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [publisher_id, title, description, category_id, reward, formattedDeadline, location || null, max_acceptors || null, pickup_location || null, delivery_location || null, subject || null]
+      `INSERT INTO tasks (publisher_id, title, description, category_id, reward, deadline, location, max_acceptors, pickup_location, delivery_location, subject, custom_data, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [publisher_id, title, description, category_id, reward, formattedDeadline, location || null, max_acceptors || null, pickup_location || null, delivery_location || null, subject || null, custom_data || null, status || 'recruiting']
     );
     return result;
   },
@@ -27,7 +27,7 @@ const Task = {
     return rows[0] || null;
   },
 
-  async findAll({ category_id, status, keyword, subject, pickup_location, delivery_location, page = 1, limit = 10 } = {}) {
+  async findAll({ category_id, status, keyword, subject, pickup_location, delivery_location, search_fields, reward_min, reward_max, page = 1, limit = 10 } = {}) {
     let sql = `SELECT t.*, u.username AS publisher_name, u.avatar AS publisher_avatar, c.name AS category_name,
                       COALESCE(ac.cnt, 0) AS acceptor_count
                FROM tasks t
@@ -36,13 +36,14 @@ const Task = {
                LEFT JOIN (SELECT task_id, COUNT(*) AS cnt FROM task_acceptors GROUP BY task_id) ac ON t.id = ac.task_id
                WHERE 1=1`;
     const params = [];
+    let hasExtraFilter = !!(keyword || subject || pickup_location || delivery_location || search_fields || reward_min || reward_max);
 
     if (category_id) { sql += ' AND t.category_id = ?'; params.push(category_id); }
 
     if (status) {
       sql += ' AND t.status = ?';
       params.push(status);
-    } else if (!keyword && !subject && !pickup_location && !delivery_location) {
+    } else if (!hasExtraFilter) {
       sql += " AND t.status NOT IN ('completed', 'cancelled')";
     }
 
@@ -51,19 +52,28 @@ const Task = {
       params.push(`%${keyword}%`, `%${keyword}%`);
     }
 
-    if (subject) {
-      sql += ' AND t.subject LIKE ?';
-      params.push(`%${subject}%`);
-    }
+    // 已知列搜索
+    if (subject) { sql += ' AND t.subject LIKE ?'; params.push(`%${subject}%`); }
+    if (pickup_location) { sql += ' AND t.pickup_location LIKE ?'; params.push(`%${pickup_location}%`); }
+    if (delivery_location) { sql += ' AND t.delivery_location LIKE ?'; params.push(`%${delivery_location}%`); }
 
-    if (pickup_location) {
-      sql += ' AND t.pickup_location LIKE ?';
-      params.push(`%${pickup_location}%`);
-    }
+    // 金额区间筛选
+    if (reward_min) { sql += ' AND t.reward >= ?'; params.push(parseFloat(reward_min)); }
+    if (reward_max) { sql += ' AND t.reward <= ?'; params.push(parseFloat(reward_max)); }
 
-    if (delivery_location) {
-      sql += ' AND t.delivery_location LIKE ?';
-      params.push(`%${delivery_location}%`);
+    // 通用自定义字段搜索 (JSON_EXTRACT)
+    if (search_fields) {
+      let sf;
+      try { sf = typeof search_fields === 'string' ? JSON.parse(search_fields) : search_fields; }
+      catch { sf = null; }
+      if (sf) {
+        for (const [key, val] of Object.entries(sf)) {
+          if (val && !['subject', 'pickup_location', 'delivery_location'].includes(key)) {
+            sql += ` AND JSON_UNQUOTE(JSON_EXTRACT(t.custom_data, '$."${key}"')) LIKE ?`;
+            params.push(`%${val}%`);
+          }
+        }
+      }
     }
 
     const countSql = `SELECT COUNT(*) AS total FROM (${sql}) AS _cnt`;
@@ -71,7 +81,7 @@ const Task = {
     const total = countRows[0].total;
 
     const offset = (page - 1) * limit;
-    sql += ' ORDER BY t.created_at DESC LIMIT ? OFFSET ?';
+    sql += ' ORDER BY t.is_featured DESC, t.created_at DESC LIMIT ? OFFSET ?';
     params.push(String(limit), String(offset));
 
     const [rows] = await db.execute(sql, params);

@@ -15,9 +15,9 @@ const adminController = {
 
   async createCategory(req, res) {
     try {
-      const { name, sort_order } = req.body;
+      const { name, sort_order, template_config, allowed_roles } = req.body;
       if (!name) return res.status(400).json({ code: 400, message: '分类名称不能为空' });
-      const result = await Category.create({ name, sort_order });
+      const result = await Category.create({ name, sort_order, template_config, allowed_roles });
       return res.status(201).json({ code: 201, message: '分类创建成功', data: { id: result.insertId } });
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
@@ -30,8 +30,8 @@ const adminController = {
 
   async updateCategory(req, res) {
     try {
-      const { name, sort_order, is_active } = req.body;
-      await Category.update(req.params.id, { name, sort_order, is_active });
+      const { name, sort_order, is_active, template_config, allowed_roles } = req.body;
+      await Category.update(req.params.id, { name, sort_order, is_active, template_config, allowed_roles });
       return res.json({ code: 200, message: '分类更新成功' });
     } catch (err) {
       console.error('Update category error:', err);
@@ -41,7 +41,7 @@ const adminController = {
 
   async deleteCategory(req, res) {
     try {
-      const FIXED_IDS = [1, 2, 3, 4]; // 跑腿代拿、学业互助、招募组队、生活交易
+      const FIXED_IDS = [1, 2, 3, 4, 5, 6]; // 跑腿代拿、学业互助、招募组队、生活交易、消息通知、校园反馈
       if (FIXED_IDS.includes(parseInt(req.params.id))) {
         return res.status(400).json({ code: 400, message: '固定分类不可删除' });
       }
@@ -83,6 +83,19 @@ const adminController = {
       return res.json({ code: 200, message: '用户已解禁' });
     } catch (err) {
       console.error('Unban user error:', err);
+      return res.status(500).json({ code: 500, message: '服务器内部错误' });
+    }
+  },
+
+  async toggleFeatured(req, res) {
+    try {
+      const db = require('../config/db');
+      const task = await require('../models/task').findById(req.params.id);
+      if (!task) return res.status(404).json({ code: 404, message: '任务不存在' });
+      await db.execute('UPDATE tasks SET is_featured = ? WHERE id = ?', [task.is_featured ? 0 : 1, req.params.id]);
+      return res.json({ code: 200, message: task.is_featured ? '已取消精华' : '已设为精华' });
+    } catch (err) {
+      console.error('Toggle featured error:', err);
       return res.status(500).json({ code: 500, message: '服务器内部错误' });
     }
   },

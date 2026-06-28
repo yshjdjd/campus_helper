@@ -4,7 +4,12 @@
       <div class="header">
         <div>
           <el-tag type="info">{{ task.category_name }}</el-tag>
-          <el-tag :type="statusTagMap[task.status]" effect="plain" style="margin-left:8px">{{ statusMap[task.status] }}</el-tag>
+          <el-tag v-if="task.is_featured" type="danger" size="small" effect="dark" style="margin-left:8px">🔥 精华</el-tag>
+          <el-tag v-if="task.status === 'pinned'" type="info" effect="plain" style="margin-left:8px">📌 固定帖子</el-tag>
+          <el-tag v-else-if="task.category_id !== 6" :type="statusTagMap[task.status]" effect="plain" style="margin-left:8px">{{ statusMap[task.status] }}</el-tag>
+          <el-button v-if="task.category_id === 6 && authStore.isAdmin" size="small" :type="task.is_featured?'warning':'success'" @click="toggleFeatured" style="margin-left:8px">
+            {{ task.is_featured ? '取消精华' : '设为精华' }}
+          </el-button>
         </div>
         <span class="time">发布时间：{{ formatDate(task.created_at) }}</span>
       </div>
@@ -21,7 +26,12 @@
         <span v-if="task.pickup_location">📦 代拿地：{{ task.pickup_location }}</span>
         <span v-if="task.delivery_location">📍 目的地：{{ task.delivery_location }}</span>
         <span v-if="task.deadline">⏰ 截止：{{ formatDate(task.deadline) }}</span>
-        <span>接单人数：{{ acceptors.length }}{{ task.max_acceptors ? ` / ${task.max_acceptors}` : '（不限）' }}</span>
+        <span v-if="task.category_id !== 6">接单人数：{{ acceptors.length }}{{ task.max_acceptors ? ` / ${task.max_acceptors}` : '（不限）' }}</span>
+        <template v-if="task.custom_data">
+          <span v-for="(val, key) in parseCustomData(task.custom_data)" :key="key" class="custom-field">
+            📌 {{ key }}：{{ val }}
+          </span>
+        </template>
       </div>
 
       <!-- 接单者列表 -->
@@ -52,7 +62,52 @@
         </el-button>
         <el-button v-if="task.status === 'in_progress' && isParticipant && !hasConfirmed" type="success" @click="handleConfirm">确认完成</el-button>
         <el-button v-if="task.status === 'in_progress' && isAcceptor" type="warning" @click="handleAbandon">放弃</el-button>
-        <el-button v-if="(task.status === 'recruiting' || task.status === 'in_progress') && task.publisher_id === authStore.user?.id" type="danger" @click="handleCancel">取消任务</el-button>
+        <el-button v-if="task.category_id === 6 && task.publisher_id === authStore.user?.id && task.status !== 'cancelled'" type="danger" @click="handleCancel">
+          撤回反馈
+        </el-button>
+        <el-button v-else-if="task.category_id !== 6 && (task.status === 'recruiting' || task.status === 'in_progress') && task.publisher_id === authStore.user?.id" type="danger" @click="handleCancel">
+          取消任务
+        </el-button>
+      </div>
+    </el-card>
+
+    <!-- 校园反馈评论区 -->
+    <el-card v-if="task.category_id === 6 && authStore.isLoggedIn" style="margin-top:20px">
+      <template #header><span>💬 评论 ({{ totalCommentCount }})</span></template>
+      <div class="comment-list">
+        <div v-if="comments.length === 0" style="color:#999;text-align:center;padding:16px">暂无评论</div>
+        <div v-for="c in comments" :key="c.id" class="comment-item">
+          <div class="comment-head">
+            <el-avatar :size="24" :src="c.avatar || ''" />
+            <span class="comment-user">{{ c.username }}</span>
+            <span class="comment-time">{{ formatDate(c.created_at) }}</span>
+            <el-button v-if="c.user_id === authStore.user?.id" text size="small" type="danger" @click="deleteComment(c)">删除</el-button>
+            <el-button size="small" type="primary" @click="replyTo = (replyTo === c.id ? null : c.id)">回复</el-button>
+          </div>
+          <p class="comment-content">{{ c.content }}</p>
+          <!-- 子回复 -->
+          <div v-if="c.children?.length" class="child-comments">
+            <div v-for="r in c.children" :key="r.id" class="child-item">
+              <div class="comment-head">
+                <el-avatar :size="20" :src="r.avatar || ''" />
+                <span class="comment-user">{{ r.username }}</span>
+                <span class="comment-time">{{ formatDate(r.created_at) }}</span>
+                <el-button v-if="r.user_id === authStore.user?.id" text size="small" type="danger" @click="deleteComment(r)">删除</el-button>
+              </div>
+              <p class="comment-content">{{ r.content }}</p>
+            </div>
+          </div>
+          <!-- 回复输入框 -->
+          <div v-if="replyTo === c.id" class="child-input">
+            <el-input v-model="replyText" type="textarea" :rows="2" :placeholder="'回复 ' + c.username + '...'" size="small" />
+            <el-button size="small" type="primary" @click="submitReply(c.id)" :disabled="!replyText.trim()" style="margin-top:6px">发送</el-button>
+            <el-button size="small" @click="replyTo = null">取消</el-button>
+          </div>
+        </div>
+      </div>
+      <div class="comment-input">
+        <el-input v-model="commentText" type="textarea" :rows="2" placeholder="写下你的评论..." />
+        <el-button type="primary" size="small" @click="submitComment" :disabled="!commentText.trim()" style="margin-top:8px">发表评论</el-button>
       </div>
     </el-card>
 
@@ -86,7 +141,7 @@
     </el-card>
 
     <!-- 私信区域 -->
-    <el-card class="chat-card" v-if="authStore.isLoggedIn && isParticipant">
+    <el-card class="chat-card" v-if="authStore.isLoggedIn && isParticipant && task.category_id !== 6">
       <template #header><span>任务私信</span></template>
       <div class="messages" ref="messagesRef">
         <div v-for="msg in messages" :key="msg.id" :class="['msg', msg.sender_id === authStore.user?.id ? 'mine' : 'other']">
@@ -123,10 +178,21 @@ const myReview = ref(null)
 const selectedRating = ref('')
 const reviewComment = ref('')
 const reviewLoading = ref(false)
+const comments = ref([])
+const commentText = ref('')
+const replyTo = ref(null)
+const replyText = ref('')
+const totalCommentCount = computed(() => {
+  let count = 0
+  for (const c of comments.value) {
+    count += 1 + (c.children?.length || 0)
+  }
+  return count
+})
 let socket = null
 
-const statusMap = { recruiting: '招募中', in_progress: '进行中', completed: '已完成', cancelled: '已取消' }
-const statusTagMap = { recruiting: 'primary', in_progress: 'warning', completed: 'success', cancelled: 'info' }
+const statusMap = { recruiting: '招募中', in_progress: '进行中', completed: '已完成', cancelled: '已取消', pinned: '固定帖子' }
+const statusTagMap = { recruiting: 'primary', in_progress: 'warning', completed: 'success', cancelled: 'info', pinned: 'info' }
 const ratingLabelMap = { good: '好评', neutral: '中评', bad: '差评' }
 const ratingTagMap = { good: 'success', neutral: 'info', bad: 'danger' }
 
@@ -150,6 +216,7 @@ const hasConfirmed = computed(() => {
 
 const canAccept = computed(() => {
   if (!task.value || !authStore.user) return false
+  if (task.value.category_id === 6) return false // 校园反馈不可接单
   if (task.value.publisher_id === authStore.user.id) return false
   if (task.value.status !== 'recruiting' && task.value.status !== 'in_progress') return false
   if (isAcceptor.value) return false
@@ -159,6 +226,18 @@ const canAccept = computed(() => {
 
 function formatDate(d) { return d ? new Date(d).toLocaleString('zh-CN') : '' }
 function scrollToBottom() { const el = messagesRef.value; if (el) el.scrollTop = el.scrollHeight }
+function parseCustomData(data) {
+  if (!data) return {}
+  try {
+    const obj = typeof data === 'string' ? JSON.parse(data) : data
+    const known = ['pickup_location', 'delivery_location', 'subject']
+    const filtered = {}
+    for (const [k, v] of Object.entries(obj)) {
+      if (!known.includes(k) && v) filtered[k] = v
+    }
+    return filtered
+  } catch { return {} }
+}
 
 async function loadTask() {
   const res = await api.get(`/tasks/${route.params.id}`)
@@ -223,6 +302,49 @@ async function handleConfirm() {
   } catch (err) { ElMessage.error(err.response?.data?.message || '操作失败') }
 }
 
+async function loadComments() {
+  try {
+    const res = await api.get(`/comments/task/${route.params.id}`)
+    comments.value = res.data.data
+  } catch (e) { /* ignore */ }
+}
+
+async function submitComment() {
+  if (!commentText.value.trim()) return
+  try {
+    await api.post(`/comments/task/${route.params.id}`, { content: commentText.value.trim() })
+    commentText.value = ''
+    ElMessage.success('评论成功')
+    loadComments()
+  } catch (err) { ElMessage.error(err.response?.data?.message || '评论失败') }
+}
+
+async function submitReply(parentId) {
+  if (!replyText.value.trim()) return
+  try {
+    await api.post(`/comments/task/${route.params.id}`, { content: replyText.value.trim(), parent_id: parentId })
+    replyText.value = ''
+    replyTo.value = null
+    ElMessage.success('回复成功')
+    loadComments()
+  } catch (err) { ElMessage.error(err.response?.data?.message || '回复失败') }
+}
+
+async function deleteComment(c) {
+  try {
+    await api.delete(`/comments/${c.id}`)
+    ElMessage.success('已删除')
+    loadComments()
+  } catch (err) { ElMessage.error('删除失败') }
+}
+
+async function toggleFeatured() {
+  try {
+    await api.put(`/admin/tasks/${task.value.id}/featured`)
+    loadTask()
+  } catch (err) { ElMessage.error('操作失败') }
+}
+
 async function handleCancel() {
   try { await api.put(`/tasks/${task.value.id}/cancel`); ElMessage.success('任务已取消'); loadTask() }
   catch (err) { ElMessage.error(err.response?.data?.message || '操作失败') }
@@ -251,8 +373,7 @@ async function submitReview() {
 }
 
 onMounted(() => {
-  loadTask(); loadMessages(); initSocket()
-  // 如果任务已完成，加载评价
+  loadTask(); loadMessages(); initSocket(); loadComments()
   setTimeout(() => { if (task.value?.status === 'completed') loadReviews() }, 500)
 })
 </script>
@@ -281,4 +402,16 @@ onMounted(() => {
 .review-item { padding: 8px 0; display: flex; align-items: center; gap: 8px; }
 .reviewer { font-weight: bold; }
 .comment { color: #666; }
+
+/* 评论区 */
+.comment-list { max-height: 400px; overflow-y: auto; }
+.comment-item { padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+.comment-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.comment-user { font-weight: 600; font-size: 14px; }
+.comment-time { color: #999; font-size: 12px; margin-left: auto; }
+.comment-content { color: #333; font-size: 14px; line-height: 1.6; margin: 0; }
+.comment-input { margin-top: 16px; }
+.child-comments { margin: 8px 0 0 32px; padding-left: 12px; border-left: 3px solid #e8e8e8; }
+.child-item { padding: 8px 0; border-bottom: 1px solid #f5f5f5; }
+.child-input { margin-top: 8px; margin-left: 32px; }
 </style>

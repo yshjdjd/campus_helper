@@ -18,5 +18,6 @@ router.delete('/categories/:id', auth, admin, adminController.deleteCategory);
 router.get('/users', auth, admin, adminController.listUsers);
 router.put('/users/:id/ban', auth, admin, adminController.banUser);
 router.put('/users/:id/unban', auth, admin, adminController.unbanUser);
+router.put('/tasks/:id/featured', auth, admin, adminController.toggleFeatured);
 
 module.exports = router;

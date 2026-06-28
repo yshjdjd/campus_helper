@@ -14,12 +14,12 @@ router.post('/', auth, [
   body('title').notEmpty().withMessage('标题不能为空').isLength({ max: 128 }),
   body('description').notEmpty().withMessage('描述不能为空'),
   body('category_id').isInt().withMessage('分类ID无效'),
-  body('reward').optional().isFloat({ min: 0 }),
-  body('deadline').optional().isISO8601(),
-  body('location').optional().isLength({ max: 255 }),
-  body('pickup_location').optional().isLength({ max: 255 }),
-  body('delivery_location').optional().isLength({ max: 255 }),
-  body('subject').optional().isLength({ max: 64 }),
+  body('reward').optional({ values: 'null' }).isFloat({ min: 0 }),
+  body('deadline').optional({ values: 'null' }).isISO8601(),
+  body('location').optional({ values: 'null' }).isLength({ max: 255 }),
+  body('pickup_location').optional({ values: 'null' }).isLength({ max: 255 }),
+  body('delivery_location').optional({ values: 'null' }).isLength({ max: 255 }),
+  body('subject').optional({ values: 'null' }).isLength({ max: 64 }),
   body('max_acceptors').optional({ values: 'null' }).isInt({ min: 1 }).withMessage('接单人数上限必须为正整数'),
 ], validate, taskController.create);
 

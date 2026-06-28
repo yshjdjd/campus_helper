@@ -13,6 +13,7 @@ const reviewRoutes = require('./routes/reviews');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/users');
 const categoryRoutes = require('./routes/categories');
+const commentRoutes = require('./routes/comments');
 
 const app = express();
 const server = http.createServer(app);
@@ -34,12 +35,14 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/comments', commentRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ code: 200, message: 'Campus Helper API is running' });
 });
 
 initSocket(io);
+app.set('io', io); // 注册 io 实例供控制器使用
 
 server.listen(config.port, () => {
   console.log(`🚀 Server running on http://localhost:${config.port}`);
