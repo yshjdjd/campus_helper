@@ -10,7 +10,7 @@
           :on-success="handleAvatarSuccess"
           :before-upload="beforeAvatarUpload"
         >
-          <el-avatar :size="80" :src="user.avatar || ''" />
+          <el-avatar :size="80" :src="user.avatar || '/default-avatar.svg'" />
           <div class="avatar-overlay">更换头像</div>
         </el-upload>
         <div class="profile-info">

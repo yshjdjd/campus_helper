@@ -54,6 +54,31 @@
           </el-table-column>
         </el-table>
       </el-tab-pane>
+
+      <el-tab-pane label="任务管理" name="tasks">
+        <el-table :data="tasks" border style="width:100%">
+          <el-table-column prop="id" label="ID" width="60" />
+          <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="publisher_name" label="发布者" width="100" />
+          <el-table-column prop="category_name" label="分类" width="90" />
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag :type="statusTypeMap[row.status] || 'info'" size="small">{{ statusLabelMap[row.status] || row.status }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="reward" label="赏金" width="70">
+            <template #default="{ row }">💰 {{ row.reward }}</template>
+          </el-table-column>
+          <el-table-column label="发布时间" width="160">
+            <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="120" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" type="danger" @click="handleForceDelete(row)">强制删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
     </el-tabs>
 
     <!-- 编辑/新增分类弹窗 -->
@@ -101,8 +126,25 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const activeTab = ref('categories')
 const categories = ref([])
 const users = ref([])
+const tasks = ref([])
 const dialogVisible = ref(false)
 const editingCategory = reactive({ id: null, name: '', sort_order: 0, templateFields: [], allowed_roles: [] })
+
+const statusLabelMap = {
+  recruiting: '招募中',
+  in_progress: '进行中',
+  completed: '已完成',
+  cancelled: '已取消',
+  pinned: '已置顶',
+}
+const statusTypeMap = {
+  recruiting: 'primary',
+  in_progress: 'warning',
+  completed: 'success',
+  cancelled: 'info',
+  pinned: 'danger',
+}
+function formatDate(d) { return d ? new Date(d).toLocaleString('zh-CN') : '' }
 
 async function loadCategories() {
   const res = await api.get('/admin/categories', { params: { all: '1' } })
@@ -210,7 +252,29 @@ async function toggleBan(row) {
   } catch (err) { ElMessage.error(err.response?.data?.message || '操作失败') }
 }
 
-onMounted(() => { loadCategories(); loadUsers() })
+async function loadTasks() {
+  try {
+    const res = await api.get('/admin/tasks', { params: { page: 1, limit: 100 } })
+    tasks.value = res.data.data.rows
+  } catch (err) { console.error('Load tasks error:', err) }
+}
+
+async function handleForceDelete(row) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要强制删除任务「${row.title}」吗？<br><small>此操作不可恢复，会同时删除关联的评论、消息和接单记录。</small>`,
+      '确认强制删除',
+      { type: 'warning', confirmButtonText: '强制删除', dangerouslyUseHTMLString: true }
+    )
+    await api.delete(`/admin/tasks/${row.id}/force`)
+    ElMessage.success('任务已强制删除')
+    loadTasks()
+  } catch (err) {
+    if (err !== 'cancel') ElMessage.error(err.response?.data?.message || '操作失败')
+  }
+}
+
+onMounted(() => { loadCategories(); loadUsers(); loadTasks() })
 </script>
 
 <style scoped>

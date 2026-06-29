@@ -19,5 +19,7 @@ router.get('/users', auth, admin, adminController.listUsers);
 router.put('/users/:id/ban', auth, admin, adminController.banUser);
 router.put('/users/:id/unban', auth, admin, adminController.unbanUser);
 router.put('/tasks/:id/featured', auth, admin, adminController.toggleFeatured);
+router.get('/tasks', auth, admin, adminController.listTasks);
+router.delete('/tasks/:id/force', auth, admin, adminController.forceDeleteTask);
 
 module.exports = router;

@@ -95,7 +95,7 @@
           </div>
           <div class="task-footer">
             <div class="task-meta">
-              <el-avatar :size="20" :src="task.publisher_avatar || ''" />
+              <el-avatar :size="20" :src="task.publisher_avatar || '/default-avatar.svg'" />
               <span>{{ task.publisher_name }}</span>
             </div>
             <span class="reward" v-if="task.reward > 0">💰 {{ task.reward }}</span>

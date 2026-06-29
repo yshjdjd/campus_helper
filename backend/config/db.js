@@ -1,16 +1,23 @@
-const mysql = require('mysql2/promise');
 const config = require('./index');
 
-const pool = mysql.createPool(config.db);
+// 测试环境：使用 mock 代替真实数据库连接
+if (process.env.NODE_ENV === 'test') {
+  const mockDb = require('../__tests__/helpers/db-mock');
+  module.exports = mockDb;
+} else {
+  const mysql = require('mysql2/promise');
 
-// Test connection on startup
-pool.getConnection()
-  .then(conn => {
-    console.log('✅ MySQL connected successfully');
-    conn.release();
-  })
-  .catch(err => {
-    console.error('❌ MySQL connection failed:', err.message);
-  });
+  const pool = mysql.createPool(config.db);
 
-module.exports = pool;
+  // Test connection on startup
+  pool.getConnection()
+    .then(conn => {
+      console.log('✅ MySQL connected successfully');
+      conn.release();
+    })
+    .catch(err => {
+      console.error('❌ MySQL connection failed:', err.message);
+    });
+
+  module.exports = pool;
+}

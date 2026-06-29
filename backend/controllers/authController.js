@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const path = require('path');
+const fs = require('fs');
 const User = require('../models/user');
 const config = require('../config');
 
@@ -102,6 +104,12 @@ const authController = {
   async uploadAvatar(req, res) {
     try {
       if (!req.file) return res.status(400).json({ code: 400, message: '请选择图片' });
+      // 删除旧头像文件
+      const currentUser = await User.findById(req.user.id);
+      if (currentUser && currentUser.avatar) {
+        const oldPath = path.join(__dirname, '..', currentUser.avatar);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
       const avatarUrl = `/uploads/avatars/${req.file.filename}`;
       await User.update(req.user.id, { avatar: avatarUrl });
       return res.json({ code: 200, message: '头像上传成功', data: { avatar: avatarUrl } });

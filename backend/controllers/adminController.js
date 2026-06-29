@@ -1,5 +1,7 @@
 const Category = require('../models/category');
 const User = require('../models/user');
+const Task = require('../models/task');
+const db = require('../config/db');
 
 const adminController = {
   async listCategories(req, res) {
@@ -89,13 +91,59 @@ const adminController = {
 
   async toggleFeatured(req, res) {
     try {
-      const db = require('../config/db');
-      const task = await require('../models/task').findById(req.params.id);
+      const task = await Task.findById(req.params.id);
       if (!task) return res.status(404).json({ code: 404, message: '任务不存在' });
       await db.execute('UPDATE tasks SET is_featured = ? WHERE id = ?', [task.is_featured ? 0 : 1, req.params.id]);
       return res.json({ code: 200, message: task.is_featured ? '已取消精华' : '已设为精华' });
     } catch (err) {
       console.error('Toggle featured error:', err);
+      return res.status(500).json({ code: 500, message: '服务器内部错误' });
+    }
+  },
+
+  async listTasks(req, res) {
+    try {
+      const { page = 1, limit = 20, keyword, status, category_id } = req.query;
+      let sql = `SELECT t.*, u.username AS publisher_name, u.avatar AS publisher_avatar,
+                        c.name AS category_name
+                 FROM tasks t
+                 LEFT JOIN users u ON t.publisher_id = u.id
+                 LEFT JOIN categories c ON t.category_id = c.id
+                 WHERE 1=1`;
+      const params = [];
+
+      if (keyword) {
+        sql += ' AND (t.title LIKE ? OR t.description LIKE ?)';
+        params.push(`%${keyword}%`, `%${keyword}%`);
+      }
+      if (status) { sql += ' AND t.status = ?'; params.push(status); }
+      if (category_id) { sql += ' AND t.category_id = ?'; params.push(category_id); }
+
+      const countSql = `SELECT COUNT(*) AS total FROM (${sql}) AS _cnt`;
+      const [countRows] = await db.execute(countSql, params);
+      const total = countRows[0].total;
+
+      const offset = (parseInt(page) - 1) * parseInt(limit);
+      sql += ' ORDER BY t.created_at DESC LIMIT ? OFFSET ?';
+      params.push(String(limit), String(offset));
+
+      const [rows] = await db.execute(sql, params);
+      return res.json({ code: 200, data: { rows, total, page: parseInt(page), limit: parseInt(limit) } });
+    } catch (err) {
+      console.error('List tasks error:', err);
+      return res.status(500).json({ code: 500, message: '服务器内部错误' });
+    }
+  },
+
+  async forceDeleteTask(req, res) {
+    try {
+      const task = await Task.findById(req.params.id);
+      if (!task) return res.status(404).json({ code: 404, message: '任务不存在' });
+
+      await Task.forceDelete(req.params.id);
+      return res.json({ code: 200, message: '任务已强制删除' });
+    } catch (err) {
+      console.error('Force delete task error:', err);
       return res.status(500).json({ code: 500, message: '服务器内部错误' });
     }
   },

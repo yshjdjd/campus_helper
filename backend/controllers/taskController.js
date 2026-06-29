@@ -52,7 +52,7 @@ const taskController = {
         publisher_id: req.user.id,
         title, description, category_id,
         status: isFeedback ? 'pinned' : 'recruiting',
-        reward: isFeedback ? 0 : reward,
+        reward: isFeedback ? 0 : (reward ?? 0),
         deadline: isFeedback ? null : deadline,
         location: isFeedback ? null : (location || null),
         max_acceptors: isFeedback ? null : (max_acceptors ? parseInt(max_acceptors) : null),

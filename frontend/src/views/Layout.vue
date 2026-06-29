@@ -27,7 +27,7 @@
             </el-button>
             <el-dropdown trigger="click" @command="handleUserMenu">
               <div class="user-avatar">
-                <el-avatar :size="32" :src="authStore.user?.avatar || ''" />
+                <el-avatar :size="32" :src="authStore.user?.avatar || '/default-avatar.svg'" />
                 <span class="user-name">{{ authStore.user?.username }}</span>
               </div>
               <template #dropdown>

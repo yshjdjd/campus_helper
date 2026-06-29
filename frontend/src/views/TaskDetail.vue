@@ -17,7 +17,7 @@
       <p class="desc">{{ task.description }}</p>
       <div class="info">
         <span class="user-link" @click="router.push(`/users/${task.publisher_id}`)">
-          <el-avatar :size="24" :src="task.publisher_avatar || ''" />
+          <el-avatar :size="24" :src="task.publisher_avatar || '/default-avatar.svg'" />
           发布者：{{ task.publisher_name }}
         </span>
         <span v-if="task.reward > 0">赏金：💰 {{ task.reward }}</span>
@@ -39,7 +39,7 @@
         <h4>接单者</h4>
         <div v-for="a in acceptors" :key="a.user_id" class="acceptor-item">
           <span class="user-link" @click="router.push(`/users/${a.user_id}`)">
-            <el-avatar :size="20" :src="a.avatar || ''" />
+            <el-avatar :size="20" :src="a.avatar || '/default-avatar.svg'" />
             {{ a.username }}
           </span>
           <el-tag v-if="task.status === 'in_progress' || task.status === 'completed'" :type="a.confirmed ? 'success' : 'info'" size="small">
@@ -78,7 +78,7 @@
         <div v-if="comments.length === 0" style="color:#999;text-align:center;padding:16px">暂无评论</div>
         <div v-for="c in comments" :key="c.id" class="comment-item">
           <div class="comment-head">
-            <el-avatar :size="24" :src="c.avatar || ''" />
+            <el-avatar :size="24" :src="c.avatar || '/default-avatar.svg'" />
             <span class="comment-user">{{ c.username }}</span>
             <span class="comment-time">{{ formatDate(c.created_at) }}</span>
             <el-button v-if="c.user_id === authStore.user?.id" text size="small" type="danger" @click="deleteComment(c)">删除</el-button>
@@ -89,7 +89,7 @@
           <div v-if="c.children?.length" class="child-comments">
             <div v-for="r in c.children" :key="r.id" class="child-item">
               <div class="comment-head">
-                <el-avatar :size="20" :src="r.avatar || ''" />
+                <el-avatar :size="20" :src="r.avatar || '/default-avatar.svg'" />
                 <span class="comment-user">{{ r.username }}</span>
                 <span class="comment-time">{{ formatDate(r.created_at) }}</span>
                 <el-button v-if="r.user_id === authStore.user?.id" text size="small" type="danger" @click="deleteComment(r)">删除</el-button>

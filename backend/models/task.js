@@ -1,12 +1,12 @@
 const db = require('../config/db');
 
 const Task = {
-  async create({ publisher_id, title, description, category_id, reward = 0, deadline, location, max_acceptors, pickup_location, delivery_location, subject, custom_data, status }) {
+  async create({ publisher_id, title, description, category_id, reward, deadline, location, max_acceptors, pickup_location, delivery_location, subject, custom_data, status }) {
     const formattedDeadline = deadline ? new Date(deadline).toISOString().slice(0, 19).replace('T', ' ') : null;
     const [result] = await db.execute(
       `INSERT INTO tasks (publisher_id, title, description, category_id, reward, deadline, location, max_acceptors, pickup_location, delivery_location, subject, custom_data, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [publisher_id, title, description, category_id, reward, formattedDeadline, location || null, max_acceptors || null, pickup_location || null, delivery_location || null, subject || null, custom_data || null, status || 'recruiting']
+      [publisher_id, title, description, category_id, reward ?? 0, formattedDeadline, location || null, max_acceptors || null, pickup_location || null, delivery_location || null, subject || null, custom_data || null, status || 'recruiting']
     );
     return result;
   },
@@ -251,6 +251,18 @@ const Task = {
       "UPDATE tasks SET acceptor_id = NULL, status = 'recruiting', publisher_confirmed = 0, acceptor_confirmed = 0 WHERE id = ?",
       [id]
     );
+    return result;
+  },
+
+  async forceDelete(id) {
+    // 删除关联的接单者记录
+    await db.execute('DELETE FROM task_acceptors WHERE task_id = ?', [id]);
+    // 删除关联的评论
+    await db.execute('DELETE FROM comments WHERE task_id = ?', [id]);
+    // 删除关联的消息
+    await db.execute('DELETE FROM messages WHERE task_id = ?', [id]);
+    // 最后删除任务本身
+    const [result] = await db.execute('DELETE FROM tasks WHERE id = ?', [id]);
     return result;
   },
 };

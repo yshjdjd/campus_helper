@@ -2,7 +2,7 @@
   <div class="user-profile" v-if="userData">
     <el-card>
       <div class="profile-header">
-        <el-avatar :size="80" :src="userData.avatar || ''" />
+        <el-avatar :size="80" :src="userData.avatar || '/default-avatar.svg'" />
         <div class="profile-info">
           <h2>{{ userData.username }}</h2>
           <p class="meta">
